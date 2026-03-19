@@ -57,10 +57,10 @@ export const PortalShell = ({ children }: PortalShellProps) => {
   return (
     <div className={styles.root}>
       <TopBar />
+      <ResourceHeader />
       <div className={styles.body}>
         <LeftNav />
         <div className={styles.content}>
-          <ResourceHeader />
           <Toolbar items={toolbarItems} />
           <div className={styles.scrollArea}>
             {children}

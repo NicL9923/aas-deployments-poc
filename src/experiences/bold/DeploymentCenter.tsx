@@ -1,49 +1,5 @@
-import { useState, useMemo } from 'react';
-import {
-  makeStyles,
-  tokens,
-  shorthands,
-  Card,
-  CardHeader,
-  Button,
-  Badge,
-  Body1,
-  Body2,
-  Caption1,
-  Subtitle1,
-  Subtitle2,
-  Title3,
-  ProgressBar,
-  Divider,
-  Switch,
-  Combobox,
-  Option,
-  Dialog,
-  DialogSurface,
-  DialogBody,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Input,
-  mergeClasses,
-} from '@fluentui/react-components';
-import {
-  BranchFork24Regular,
-  Rocket24Regular,
-  Open24Regular,
-  Settings24Regular,
-  ChevronDown20Regular,
-  ChevronUp20Regular,
-  LinkDismiss24Regular,
-  Code24Regular,
-  Eye20Regular,
-  EyeOff20Regular,
-  Copy20Regular,
-  PlugConnected24Regular,
-  CloudArrowUp24Regular,
-  Globe24Regular,
-} from '@fluentui/react-icons';
-import type { DeploymentEntry, DeploymentSourceType } from '../../types';
+import React, { useState } from 'react';
+import type { DeploymentSourceType, DeploymentStatus } from '../../types';
 import {
   deploymentSource,
   deploymentHistory,
@@ -52,64 +8,128 @@ import {
   availableBranches,
 } from '../../mock-data';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import {
+  makeStyles,
+  tokens,
+  mergeClasses,
+  Badge,
+  Button,
+  Combobox,
+  Option,
+  ProgressBar,
+  Dialog,
+  DialogSurface,
+  DialogBody,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Text,
+  Divider,
+  Input,
+  Label,
+  Tooltip,
+} from '@fluentui/react-components';
+import {
+  BranchFork24Regular,
+  Rocket24Regular,
+  Open24Regular,
+  Settings24Regular,
+  ChevronRight24Regular,
+  ArrowUpload24Regular,
+  Code24Regular,
+  Globe24Regular,
+  Cloud24Regular,
+  Eye24Regular,
+  EyeOff24Regular,
+} from '@fluentui/react-icons';
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
+// ─── Static data ────────────────────────────────────────────────────────────
 
-function formatRelativeTime(timestamp: string): string {
-  const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
+const sourceOptions: {
+  type: DeploymentSourceType;
+  name: string;
+  description: string;
+  recommended?: boolean;
+}[] = [
+  { type: 'github', name: 'GitHub', description: 'Deploy using GitHub Actions workflows', recommended: true },
+  { type: 'azureRepos', name: 'Azure Repos', description: 'Deploy from an Azure DevOps repository' },
+  { type: 'bitbucket', name: 'Bitbucket', description: 'Deploy from Bitbucket Cloud' },
+  { type: 'localGit', name: 'Local Git', description: 'Push directly from your local machine' },
+  { type: 'externalGit', name: 'External Git', description: 'Any publicly accessible Git repository' },
+  { type: 'publishFiles', name: 'Publish Files', description: 'Upload files from your dev tools' },
+];
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const formatRelativeTime = (timestamp: string): string => {
+  const ms = Date.now() - new Date(timestamp).getTime();
+  const seconds = Math.floor(Math.abs(ms) / 1000);
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
-function formatDuration(sec?: number): string {
-  if (!sec) return '--';
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
+  if (seconds < 60) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 30) return `${days}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+};
+
+const formatDuration = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Styles                                                             */
-/* ------------------------------------------------------------------ */
-
-const pulseKeyframes = {
-  '0%': { opacity: 1 },
-  '50%': { opacity: 0.4 },
-  '100%': { opacity: 1 },
 };
 
-const shimmerKeyframes = {
-  '0%': { transform: 'translateX(-100%)' },
-  '100%': { transform: 'translateX(100%)' },
+const getSourceIcon = (type: DeploymentSourceType): React.ReactNode => {
+  const map: Record<DeploymentSourceType, React.ReactNode> = {
+    github: <BranchFork24Regular />,
+    azureRepos: <Cloud24Regular />,
+    bitbucket: <Code24Regular />,
+    localGit: <Code24Regular />,
+    externalGit: <Globe24Regular />,
+    publishFiles: <ArrowUpload24Regular />,
+    none: <Code24Regular />,
+  };
+  return map[type];
 };
+
+// ─── Styles ─────────────────────────────────────────────────────────────────
 
 const useStyles = makeStyles({
+  // Layout
   root: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalXXL,
     maxWidth: '960px',
+    paddingTop: tokens.spacingVerticalXL,
+    paddingBottom: tokens.spacingVerticalXXL,
+  },
+  pageTitle: {
+    fontSize: tokens.fontSizeHero800,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    lineHeight: tokens.lineHeightHero800,
   },
 
-  /* Source card */
+  // ── Source card ──────────────────────────
   sourceCard: {
-    ...shorthands.padding(tokens.spacingVerticalL, tokens.spacingHorizontalXL),
-    ...shorthands.borderRadius(tokens.borderRadiusXLarge),
-    backgroundColor: tokens.colorNeutralBackground1,
-    boxShadow: tokens.shadow4,
-  },
-  sourceRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: tokens.spacingHorizontalL,
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingTop: tokens.spacingVerticalM,
+    paddingBottom: tokens.spacingVerticalM,
+    paddingLeft: tokens.spacingHorizontalL,
+    paddingRight: tokens.spacingHorizontalL,
+    backgroundColor: tokens.colorNeutralBackground1,
+    borderRadius: tokens.borderRadiusLarge,
+    boxShadow: tokens.shadow4,
+  },
+  sourceLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
   },
   sourceIcon: {
     display: 'flex',
@@ -117,251 +137,312 @@ const useStyles = makeStyles({
     justifyContent: 'center',
     width: '40px',
     height: '40px',
-    ...shorthands.borderRadius(tokens.borderRadiusLarge),
-    backgroundColor: tokens.colorNeutralBackground3,
-    color: tokens.colorNeutralForeground1,
-    flexShrink: 0,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorBrandBackground2,
+    color: tokens.colorBrandForeground1,
   },
   sourceDetails: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalXXS,
-    flexGrow: 1,
-    minWidth: 0,
+  },
+  sourceRepo: {
+    fontWeight: tokens.fontWeightSemibold,
+    fontSize: tokens.fontSizeBase400,
+    color: tokens.colorNeutralForeground1,
   },
   sourceMeta: {
     display: 'flex',
     alignItems: 'center',
-    gap: tokens.spacingHorizontalM,
-    flexWrap: 'wrap',
-  },
-  chip: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalXXS,
-    ...shorthands.padding(tokens.spacingVerticalXXS, tokens.spacingHorizontalS),
-    ...shorthands.borderRadius(tokens.borderRadiusMedium),
-    backgroundColor: tokens.colorNeutralBackground3,
+    gap: tokens.spacingHorizontalS,
     fontSize: tokens.fontSizeBase200,
-    fontFamily: tokens.fontFamilyMonospace,
+    color: tokens.colorNeutralForeground3,
+  },
+  dot: {
+    width: '3px',
+    height: '3px',
+    borderRadius: tokens.borderRadiusCircular,
+    backgroundColor: tokens.colorNeutralForeground3,
+    flexShrink: 0,
+  },
+  disconnectBtn: {
+    color: tokens.colorPaletteRedForeground1,
   },
 
-  /* Hero deployment card */
+  // ── Hero card ───────────────────────────
   heroCard: {
-    ...shorthands.padding(tokens.spacingVerticalXL, tokens.spacingHorizontalXL),
-    ...shorthands.borderRadius(tokens.borderRadiusXLarge),
+    paddingTop: tokens.spacingVerticalXXL,
+    paddingBottom: tokens.spacingVerticalXXL,
+    paddingLeft: tokens.spacingHorizontalXXL,
+    paddingRight: tokens.spacingHorizontalXXL,
     backgroundColor: tokens.colorNeutralBackground1,
+    borderRadius: tokens.borderRadiusXLarge,
     boxShadow: tokens.shadow8,
-    borderLeft: `4px solid ${tokens.colorBrandBackground}`,
+    borderLeftWidth: '4px',
+    borderLeftStyle: 'solid',
+    borderLeftColor: tokens.colorBrandStroke1,
     cursor: 'pointer',
-    transitionDuration: tokens.durationNormal,
     transitionProperty: 'box-shadow',
+    transitionDuration: tokens.durationNormal,
     ':hover': {
       boxShadow: tokens.shadow16,
     },
   },
   heroTop: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: tokens.spacingHorizontalM,
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: tokens.spacingHorizontalL,
   },
-  heroInfo: {
+  heroBody: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalS,
+    flex: 1,
     minWidth: 0,
-    flexGrow: 1,
+  },
+  heroLabel: {
+    fontSize: tokens.fontSizeBase200,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorBrandForeground1,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  heroMessage: {
+    fontSize: tokens.fontSizeBase500,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    lineHeight: tokens.lineHeightBase500,
   },
   heroMeta: {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
     flexWrap: 'wrap',
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
   },
-  progressShimmer: {
-    marginTop: tokens.spacingVerticalM,
-    position: 'relative',
-    overflow: 'hidden',
-    height: '4px',
-    ...shorthands.borderRadius('2px'),
+  commitHash: {
+    fontFamily: tokens.fontFamilyMonospace,
+    fontSize: tokens.fontSizeBase200,
     backgroundColor: tokens.colorNeutralBackground3,
+    paddingTop: tokens.spacingVerticalXXS,
+    paddingBottom: tokens.spacingVerticalXXS,
+    paddingLeft: tokens.spacingHorizontalS,
+    paddingRight: tokens.spacingHorizontalS,
+    borderRadius: tokens.borderRadiusMedium,
+    color: tokens.colorNeutralForeground2,
   },
-  shimmerBar: {
-    position: 'absolute',
-    top: '0',
-    left: '0',
-    height: '100%',
-    width: '60%',
-    ...shorthands.borderRadius('2px'),
-    backgroundColor: tokens.colorBrandBackground,
-    animationName: shimmerKeyframes,
+  heroProgress: {
+    marginTop: tokens.spacingVerticalM,
+  },
+  progressPulse: {
+    animationName: {
+      from: { opacity: 0.6 },
+      to: { opacity: 1 },
+    },
     animationDuration: '1.5s',
-    animationTimingFunction: 'ease-in-out',
     animationIterationCount: 'infinite',
+    animationDirection: 'alternate',
+  },
+  expandHint: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    marginTop: tokens.spacingVerticalS,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
   },
 
-  /* Timeline */
-  timelineSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalXS,
+  // ── Build logs ──────────────────────────
+  buildLogs: {
+    marginTop: tokens.spacingVerticalM,
+    paddingTop: tokens.spacingVerticalM,
+    paddingBottom: tokens.spacingVerticalM,
+    paddingLeft: tokens.spacingHorizontalL,
+    paddingRight: tokens.spacingHorizontalL,
+    backgroundColor: tokens.colorNeutralBackgroundInverted,
+    color: tokens.colorNeutralForegroundInverted,
+    borderRadius: tokens.borderRadiusMedium,
+    fontFamily: tokens.fontFamilyMonospace,
+    fontSize: tokens.fontSizeBase200,
+    lineHeight: tokens.lineHeightBase300,
+    overflowX: 'auto',
+    overflowY: 'auto',
+    maxHeight: '300px',
+    whiteSpace: 'pre',
   },
-  timelineItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    ...shorthands.borderRadius(tokens.borderRadiusLarge),
-    backgroundColor: tokens.colorNeutralBackground1,
-    boxShadow: tokens.shadow2,
-    overflow: 'hidden',
-    transitionDuration: tokens.durationNormal,
-    transitionProperty: 'box-shadow',
-    ':hover': {
-      boxShadow: tokens.shadow8,
-    },
-  },
-  timelineRow: {
+
+  // ── Quick actions ───────────────────────
+  actionsRow: {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
-    ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalL),
-    cursor: 'pointer',
+    flexWrap: 'wrap',
   },
-  borderSuccess: { borderLeft: `3px solid ${tokens.colorPaletteGreenBorder2}` },
-  borderFailed: { borderLeft: `3px solid ${tokens.colorPaletteRedBorder2}` },
-  borderInProgress: { borderLeft: `3px solid ${tokens.colorBrandStroke1}` },
-  borderPending: { borderLeft: `3px solid ${tokens.colorPaletteYellowBorder2}` },
-  borderCanceled: { borderLeft: `3px solid ${tokens.colorNeutralStroke2}` },
+
+  // ── Timeline ────────────────────────────
+  sectionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
+  sectionTitle: {
+    fontSize: tokens.fontSizeBase400,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+  },
+  timeline: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalS,
+  },
+  entry: {
+    display: 'flex',
+    flexDirection: 'column',
+    paddingTop: tokens.spacingVerticalM,
+    paddingBottom: tokens.spacingVerticalM,
+    paddingLeft: tokens.spacingHorizontalL,
+    paddingRight: tokens.spacingHorizontalL,
+    backgroundColor: tokens.colorNeutralBackground1,
+    borderRadius: tokens.borderRadiusLarge,
+    borderLeftWidth: '3px',
+    borderLeftStyle: 'solid',
+    borderLeftColor: tokens.colorNeutralStroke1,
+    cursor: 'pointer',
+    transitionProperty: 'box-shadow',
+    transitionDuration: tokens.durationNormal,
+    boxShadow: tokens.shadow2,
+    ':hover': {
+      boxShadow: tokens.shadow4,
+    },
+  },
+  borderSuccess: { borderLeftColor: tokens.colorPaletteGreenBorder2 },
+  borderFailed: { borderLeftColor: tokens.colorPaletteRedBorder2 },
+  borderInProgress: { borderLeftColor: tokens.colorPaletteBlueBorderActive },
+  borderPending: { borderLeftColor: tokens.colorPaletteYellowBorder2 },
+  borderCanceled: { borderLeftColor: tokens.colorNeutralStroke1 },
+
+  entryRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+  },
   avatar: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     width: '32px',
     height: '32px',
-    ...shorthands.borderRadius('50%'),
-    backgroundColor: tokens.colorBrandBackground2,
-    color: tokens.colorBrandForeground2,
-    fontWeight: tokens.fontWeightSemibold,
+    borderRadius: tokens.borderRadiusCircular,
     fontSize: tokens.fontSizeBase200,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForegroundOnBrand,
     flexShrink: 0,
   },
-  timelineDetails: {
+  avatarBerry: { backgroundColor: tokens.colorPaletteBerryBackground2 },
+  avatarLavender: { backgroundColor: tokens.colorPaletteLavenderBackground2 },
+  avatarMarigold: { backgroundColor: tokens.colorPaletteMarigoldBackground2 },
+  avatarTeal: { backgroundColor: tokens.colorPaletteTealBackground2 },
+  avatarPurple: { backgroundColor: tokens.colorPalettePurpleBackground2 },
+
+  entryBody: {
+    flex: 1,
+    minWidth: 0,
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalXXS,
-    flexGrow: 1,
-    minWidth: 0,
   },
-  timelineMessage: {
-    overflow: 'hidden',
+  entryMessage: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightMedium,
+    color: tokens.colorNeutralForeground1,
+    overflowX: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
-  timelineRight: {
+  entryMeta: {
     display: 'flex',
     alignItems: 'center',
-    gap: tokens.spacingHorizontalM,
+    gap: tokens.spacingHorizontalS,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  entryRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
     flexShrink: 0,
   },
-  pulsingDot: {
-    width: '8px',
-    height: '8px',
-    ...shorthands.borderRadius('50%'),
-    backgroundColor: tokens.colorBrandBackground,
-    animationName: pulseKeyframes,
-    animationDuration: '1.5s',
-    animationIterationCount: 'infinite',
-  },
-
-  /* Build logs */
-  logsBlock: {
-    ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalL),
-    backgroundColor: tokens.colorNeutralBackground6,
-    fontFamily: tokens.fontFamilyMonospace,
-    fontSize: tokens.fontSizeBase200,
-    lineHeight: tokens.lineHeightBase300,
-    overflowX: 'auto',
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-all',
-    color: tokens.colorNeutralForeground1,
-    borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
-  },
-
-  /* Quick actions */
-  actionsRow: {
+  expandIcon: {
     display: 'flex',
-    gap: tokens.spacingHorizontalM,
-    flexWrap: 'wrap',
+    color: tokens.colorNeutralForeground3,
+    transitionProperty: 'transform',
+    transitionDuration: tokens.durationNormal,
+  },
+  expandIconOpen: {
+    transform: 'rotate(90deg)',
   },
 
-  /* Credentials */
-  credentialsSection: {
+  // ── Credentials ─────────────────────────
+  credSection: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalM,
   },
-  credentialField: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-  },
-  credInput: {
-    flexGrow: 1,
-  },
-  dialogSurface: {
-    maxWidth: '720px',
-  },
-  chipIconSmall: {
-    fontSize: '14px',
-  },
-  heroProgress: {
-    marginTop: tokens.spacingVerticalM,
-  },
-  heroLogsInline: {
-    marginTop: tokens.spacingVerticalM,
-    ...shorthands.borderRadius(tokens.borderRadiusLarge),
-    borderTop: 'none',
-  },
-  credLabel: {
-    minWidth: '120px',
-    fontWeight: tokens.fontWeightSemibold,
-  },
-
-  /* Setup overlay */
-  setupOverlay: {
+  credContent: {
     display: 'flex',
     flexDirection: 'column',
-    gap: tokens.spacingVerticalXL,
+    gap: tokens.spacingVerticalM,
+    paddingTop: tokens.spacingVerticalM,
+    paddingBottom: tokens.spacingVerticalM,
+    paddingLeft: tokens.spacingHorizontalL,
+    paddingRight: tokens.spacingHorizontalL,
+    backgroundColor: tokens.colorNeutralBackground1,
+    borderRadius: tokens.borderRadiusLarge,
+    boxShadow: tokens.shadow2,
+  },
+  credField: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXS,
+  },
+
+  // ── Setup dialog ────────────────────────
+  dialogSurface: {
+    maxWidth: '680px',
   },
   sourceGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: tokens.spacingHorizontalL,
+    gap: tokens.spacingHorizontalM,
+    paddingTop: tokens.spacingVerticalM,
   },
-  sourceOptionCard: {
-    ...shorthands.padding(tokens.spacingVerticalL, tokens.spacingHorizontalL),
-    ...shorthands.borderRadius(tokens.borderRadiusXLarge),
-    backgroundColor: tokens.colorNeutralBackground1,
-    boxShadow: tokens.shadow2,
-    cursor: 'pointer',
+  sourceOption: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: tokens.spacingVerticalS,
+    paddingTop: tokens.spacingVerticalL,
+    paddingBottom: tokens.spacingVerticalL,
+    paddingLeft: tokens.spacingHorizontalM,
+    paddingRight: tokens.spacingHorizontalM,
+    borderRadius: tokens.borderRadiusLarge,
+    border: `1px solid ${tokens.colorNeutralStroke1}`,
+    cursor: 'pointer',
     textAlign: 'center',
+    transitionProperty: 'border-color, box-shadow, background-color',
     transitionDuration: tokens.durationNormal,
-    transitionProperty: 'box-shadow, border-color',
-    ...shorthands.border('2px', 'solid', tokens.colorNeutralStroke2),
+    backgroundColor: tokens.colorNeutralBackground1,
     ':hover': {
-      boxShadow: tokens.shadow8,
-      ...shorthands.borderColor(tokens.colorBrandStroke1),
+      border: `1px solid ${tokens.colorBrandStroke1}`,
+      boxShadow: tokens.shadow4,
     },
   },
   sourceOptionSelected: {
-    ...shorthands.borderColor(tokens.colorBrandStroke1),
+    border: `1px solid ${tokens.colorBrandStroke1}`,
     backgroundColor: tokens.colorBrandBackground2,
-    boxShadow: tokens.shadow8,
+    boxShadow: tokens.shadow4,
   },
   sourceOptionIcon: {
     display: 'flex',
@@ -369,393 +450,472 @@ const useStyles = makeStyles({
     justifyContent: 'center',
     width: '48px',
     height: '48px',
-    ...shorthands.borderRadius(tokens.borderRadiusLarge),
+    borderRadius: tokens.borderRadiusMedium,
     backgroundColor: tokens.colorNeutralBackground3,
+    color: tokens.colorBrandForeground1,
+  },
+  sourceOptionName: {
+    fontWeight: tokens.fontWeightSemibold,
+    fontSize: tokens.fontSizeBase300,
     color: tokens.colorNeutralForeground1,
-    fontSize: '24px',
+  },
+  sourceOptionDesc: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+    lineHeight: tokens.lineHeightBase200,
   },
   configForm: {
     display: 'flex',
     flexDirection: 'column',
-    gap: tokens.spacingVerticalM,
+    gap: tokens.spacingVerticalL,
+    paddingTop: tokens.spacingVerticalM,
   },
   formField: {
     display: 'flex',
     flexDirection: 'column',
-    gap: tokens.spacingVerticalXXS,
+    gap: tokens.spacingVerticalXS,
   },
-  sectionHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-    marginBottom: tokens.spacingVerticalS,
+  backLink: {
+    alignSelf: 'flex-start',
   },
 });
 
-/* ------------------------------------------------------------------ */
-/*  Source option definitions                                          */
-/* ------------------------------------------------------------------ */
-
-interface SourceOption {
-  type: DeploymentSourceType;
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-}
-
-const sourceOptions: SourceOption[] = [
-  { type: 'github', name: 'GitHub', description: 'CI/CD with GitHub Actions', icon: <BranchFork24Regular /> },
-  { type: 'azureRepos', name: 'Azure Repos', description: 'Azure DevOps Pipelines', icon: <Code24Regular /> },
-  { type: 'bitbucket', name: 'Bitbucket', description: 'Bitbucket Pipelines', icon: <BranchFork24Regular /> },
-  { type: 'localGit', name: 'Local Git', description: 'Push from local repo', icon: <PlugConnected24Regular /> },
-  { type: 'externalGit', name: 'External Git', description: 'Any Git repository', icon: <Globe24Regular /> },
-  { type: 'publishFiles', name: 'Publish Files', description: 'Upload ZIP or folder', icon: <CloudArrowUp24Regular /> },
-];
-
-/* ------------------------------------------------------------------ */
-/*  Status-to-border-class map                                        */
-/* ------------------------------------------------------------------ */
-
-function useBorderClass(status: string, styles: ReturnType<typeof useStyles>): string {
-  switch (status) {
-    case 'Success': return styles.borderSuccess;
-    case 'Failed': return styles.borderFailed;
-    case 'InProgress': return styles.borderInProgress;
-    case 'Pending': return styles.borderPending;
-    default: return styles.borderCanceled;
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export const BoldDeploymentCenter = () => {
   const styles = useStyles();
 
-  // State
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [showSetup, setShowSetup] = useState(false);
-  const [showCredentials, setShowCredentials] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
-  // Setup wizard state
-  const [selectedSourceType, setSelectedSourceType] = useState<DeploymentSourceType>('github');
-  const [selectedOrg, setSelectedOrg] = useState(availableOrgs[0]);
+  const [selectedSource, setSelectedSource] = useState<DeploymentSourceType | null>(null);
+  const [selectedOrg, setSelectedOrg] = useState('');
   const [selectedRepo, setSelectedRepo] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
+  const [showCredentials, setShowCredentials] = useState(false);
 
   const latestDeployment = deploymentHistory[0];
   const recentDeployments = deploymentHistory.slice(1);
 
-  const toggleExpand = (id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const reposForOrg = useMemo(
-    () => availableRepos[selectedOrg] ?? [],
-    [selectedOrg],
-  );
-
-  /* ---------------------------------------------------------------- */
-  /*  Timeline item                                                    */
-  /* ---------------------------------------------------------------- */
-
-  const TimelineItem = ({ entry }: { entry: DeploymentEntry }) => {
-    const expanded = expandedIds.has(entry.id);
-    const borderClass = useBorderClass(entry.status, styles);
-
-    return (
-      <div className={mergeClasses(styles.timelineItem, borderClass)}>
-        <div className={styles.timelineRow} onClick={() => toggleExpand(entry.id)}>
-          <div className={styles.avatar}>{entry.author[0].toUpperCase()}</div>
-          <div className={styles.timelineDetails}>
-            <Body1 className={styles.timelineMessage}>{entry.message}</Body1>
-            <Caption1>
-              {entry.author} · {formatRelativeTime(entry.timestamp)}
-              {entry.durationSeconds ? ` · ${formatDuration(entry.durationSeconds)}` : ''}
-            </Caption1>
-          </div>
-          <div className={styles.timelineRight}>
-            {entry.status === 'InProgress' && <div className={styles.pulsingDot} />}
-            <StatusBadge status={entry.status} />
-            {expanded ? <ChevronUp20Regular /> : <ChevronDown20Regular />}
-          </div>
-        </div>
-        {expanded && entry.buildLogs && (
-          <div className={styles.logsBlock}>
-            {entry.buildLogs.map((line, i) => (
-              <div key={i}>{line}</div>
-            ))}
-          </div>
-        )}
-      </div>
+  const toggleExpanded = (id: string) => {
+    setExpandedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
     );
   };
 
-  /* ---------------------------------------------------------------- */
-  /*  Setup Dialog                                                     */
-  /* ---------------------------------------------------------------- */
+  const statusBorderMap: Record<DeploymentStatus, string> = {
+    Success: styles.borderSuccess,
+    Failed: styles.borderFailed,
+    InProgress: styles.borderInProgress,
+    Pending: styles.borderPending,
+    Canceled: styles.borderCanceled,
+  };
 
-  const SetupDialog = () => (
-    <Dialog open={showSetup} onOpenChange={(_, d) => setShowSetup(d.open)}>
-      <DialogSurface className={styles.dialogSurface}>
-        <DialogBody>
-          <DialogTitle>Configure Deployment Source</DialogTitle>
-          <DialogContent>
-            <div className={styles.setupOverlay}>
-              <div className={styles.sourceGrid}>
-                {sourceOptions.map((opt) => (
-                  <div
-                    key={opt.type}
-                    className={mergeClasses(
-                      styles.sourceOptionCard,
-                      selectedSourceType === opt.type && styles.sourceOptionSelected,
-                    )}
-                    onClick={() => setSelectedSourceType(opt.type)}
-                  >
-                    <div className={styles.sourceOptionIcon}>{opt.icon}</div>
-                    <Subtitle2>{opt.name}</Subtitle2>
-                    <Caption1>{opt.description}</Caption1>
-                    {opt.type === 'github' && (
-                      <Badge appearance="filled" color="brand" size="small">Recommended</Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
+  const avatarClasses = [
+    styles.avatarBerry,
+    styles.avatarLavender,
+    styles.avatarMarigold,
+    styles.avatarTeal,
+    styles.avatarPurple,
+  ];
 
-              {selectedSourceType === 'github' && (
-                <>
-                  <Divider />
-                  <div className={styles.configForm}>
-                    <div className={styles.formField}>
-                      <Body2>Organization</Body2>
-                      <Combobox
-                        placeholder="Search organizations..."
-                        value={selectedOrg}
-                        onOptionSelect={(_, d) => {
-                          setSelectedOrg(d.optionValue ?? '');
-                          setSelectedRepo('');
-                        }}
-                      >
-                        {availableOrgs.map((org) => (
-                          <Option key={org} value={org}>{org}</Option>
-                        ))}
-                      </Combobox>
-                    </div>
-                    <div className={styles.formField}>
-                      <Body2>Repository</Body2>
-                      <Combobox
-                        placeholder="Search repositories..."
-                        value={selectedRepo}
-                        onOptionSelect={(_, d) => setSelectedRepo(d.optionValue ?? '')}
-                      >
-                        {reposForOrg.map((repo) => (
-                          <Option key={repo} value={repo}>{repo}</Option>
-                        ))}
-                      </Combobox>
-                    </div>
-                    <div className={styles.formField}>
-                      <Body2>Branch</Body2>
-                      <Combobox
-                        placeholder="Search branches..."
-                        value={selectedBranch}
-                        onOptionSelect={(_, d) => setSelectedBranch(d.optionValue ?? '')}
-                      >
-                        {availableBranches.map((b) => (
-                          <Option key={b} value={b}>{b}</Option>
-                        ))}
-                      </Combobox>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </DialogContent>
-          <DialogActions>
-            <Button appearance="secondary" onClick={() => setShowSetup(false)}>Cancel</Button>
-            <Button appearance="primary" onClick={() => setShowSetup(false)}>Connect</Button>
-          </DialogActions>
-        </DialogBody>
-      </DialogSurface>
-    </Dialog>
-  );
+  const getAvatarColor = (name: string) =>
+    avatarClasses[name.charCodeAt(0) % avatarClasses.length];
 
-  /* ---------------------------------------------------------------- */
-  /*  Render                                                           */
-  /* ---------------------------------------------------------------- */
+  const handleDisconnect = () => {
+    setShowSetup(true);
+    setSelectedSource(null);
+  };
+
+  const handleSourceSelect = (type: DeploymentSourceType) => {
+    setSelectedSource(type);
+    setSelectedOrg('');
+    setSelectedRepo('');
+    setSelectedBranch('');
+  };
+
+  const handleConnect = () => {
+    setShowSetup(false);
+    setSelectedSource(null);
+  };
+
+  const handleCancel = () => {
+    setShowSetup(false);
+    setSelectedSource(null);
+  };
 
   return (
     <div className={styles.root}>
-      {/* Source Card */}
-      <Card className={styles.sourceCard}>
-        <div className={styles.sourceRow}>
+      {/* ── Header ─────────────────────────────────────────── */}
+      <Text className={styles.pageTitle} block>
+        Deployment Center
+      </Text>
+
+      {/* ── Source card ─────────────────────────────────────── */}
+      <div className={styles.sourceCard}>
+        <div className={styles.sourceLeft}>
           <div className={styles.sourceIcon}>
             <BranchFork24Regular />
           </div>
           <div className={styles.sourceDetails}>
-            <Subtitle1>{deploymentSource.githubOrg}/{deploymentSource.githubRepo}</Subtitle1>
+            <Text className={styles.sourceRepo}>
+              {deploymentSource.githubOrg}/{deploymentSource.githubRepo}
+            </Text>
             <div className={styles.sourceMeta}>
-              <span className={styles.chip}>
-                <BranchFork24Regular className={styles.chipIconSmall} />
-                {deploymentSource.githubBranch}
-              </span>
-              <span className={styles.chip}>GitHub Actions</span>
+              <span>{deploymentSource.githubBranch}</span>
+              <span className={styles.dot} />
+              <span>GitHub Actions</span>
             </div>
           </div>
+        </div>
+        <Tooltip content="Disconnect deployment source" relationship="description">
           <Button
             appearance="subtle"
-            icon={<LinkDismiss24Regular />}
-            onClick={() => setShowSetup(true)}
+            className={styles.disconnectBtn}
+            onClick={handleDisconnect}
           >
             Disconnect
           </Button>
-        </div>
-      </Card>
+        </Tooltip>
+      </div>
 
-      {/* Latest Deployment Hero */}
-      <div>
-        <div className={styles.sectionHeader}>
-          <Title3>Latest Deployment</Title3>
-        </div>
+      {/* ── Latest deployment hero ─────────────────────────── */}
+      {latestDeployment && (
         <div
           className={styles.heroCard}
-          onClick={() => toggleExpand(latestDeployment.id)}
+          onClick={() => toggleExpanded(latestDeployment.id)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') toggleExpanded(latestDeployment.id);
+          }}
         >
           <div className={styles.heroTop}>
-            <div className={styles.heroInfo}>
-              <Subtitle1>{latestDeployment.message}</Subtitle1>
+            <div className={styles.heroBody}>
+              <Text className={styles.heroLabel}>Latest Deployment</Text>
+              <Text className={styles.heroMessage}>
+                {latestDeployment.commitMessage ?? latestDeployment.message}
+              </Text>
               <div className={styles.heroMeta}>
-                <div className={styles.avatar}>
-                  {latestDeployment.author[0].toUpperCase()}
-                </div>
-                <Body1>{latestDeployment.author}</Body1>
-                <Caption1>{formatRelativeTime(latestDeployment.timestamp)}</Caption1>
-                {latestDeployment.commitId && (
-                  <span className={styles.chip}>{latestDeployment.commitId}</span>
+                <span>{latestDeployment.author}</span>
+                <span className={styles.dot} />
+                <StatusBadge status={latestDeployment.status} />
+                <span className={styles.dot} />
+                <span>{formatRelativeTime(latestDeployment.timestamp)}</span>
+                {latestDeployment.durationSeconds != null && (
+                  <>
+                    <span className={styles.dot} />
+                    <span>{formatDuration(latestDeployment.durationSeconds)}</span>
+                  </>
                 )}
-                {latestDeployment.durationSeconds && (
-                  <Caption1>{formatDuration(latestDeployment.durationSeconds)}</Caption1>
+                {latestDeployment.commitId && (
+                  <Tooltip
+                    content={`Commit ${latestDeployment.commitId}`}
+                    relationship="description"
+                  >
+                    <span className={styles.commitHash}>
+                      {latestDeployment.commitId.slice(0, 7)}
+                    </span>
+                  </Tooltip>
                 )}
               </div>
             </div>
-            <StatusBadge status={latestDeployment.status} />
+            <span
+              className={mergeClasses(
+                styles.expandIcon,
+                expandedIds.includes(latestDeployment.id) && styles.expandIconOpen,
+              )}
+            >
+              <ChevronRight24Regular />
+            </span>
           </div>
+
           {latestDeployment.status === 'InProgress' && (
-            <div className={styles.progressShimmer}>
-              <div className={styles.shimmerBar} />
+            <div className={mergeClasses(styles.heroProgress, styles.progressPulse)}>
+              <ProgressBar />
             </div>
           )}
-          {latestDeployment.status !== 'InProgress' && latestDeployment.status === 'Success' && (
-            <ProgressBar value={1} thickness="large" color="success" className={styles.heroProgress} />
-          )}
-          {expandedIds.has(latestDeployment.id) && latestDeployment.buildLogs && (
-            <div className={mergeClasses(styles.logsBlock, styles.heroLogsInline)}>
-              {latestDeployment.buildLogs.map((line, i) => (
-                <div key={i}>{line}</div>
-              ))}
+
+          {!expandedIds.includes(latestDeployment.id) && (
+            <div className={styles.expandHint}>
+              <ChevronRight24Regular fontSize={12} />
+              <span>Click to view build logs</span>
             </div>
+          )}
+
+          {expandedIds.includes(latestDeployment.id) && latestDeployment.buildLogs && (
+            <pre className={styles.buildLogs}>
+              {latestDeployment.buildLogs.join('\n')}
+            </pre>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Quick Actions */}
+      {/* ── Quick actions ──────────────────────────────────── */}
       <div className={styles.actionsRow}>
         <Button appearance="primary" icon={<Rocket24Regular />}>
-          Trigger Deploy
+          Trigger deploy
         </Button>
-        <Button
-          appearance="outline"
-          icon={<Open24Regular />}
-          as="a"
-          href={deploymentSource.repoUrl}
-          target="_blank"
-        >
+        <Button appearance="outline" icon={<Open24Regular />}>
           View on GitHub
         </Button>
         <Button
           appearance="subtle"
           icon={<Settings24Regular />}
-          onClick={() => setShowSetup(true)}
+          onClick={() => {
+            setShowSetup(true);
+            setSelectedSource(null);
+          }}
         >
-          Change Source
+          Change source
         </Button>
       </div>
 
-      {/* Recent Deployments Timeline */}
-      <div>
-        <div className={styles.sectionHeader}>
-          <Title3>Recent Deployments</Title3>
-        </div>
-        <div className={styles.timelineSection}>
-          {recentDeployments.map((entry) => (
-            <TimelineItem key={entry.id} entry={entry} />
-          ))}
-        </div>
+      <Divider />
+
+      {/* ── Recent deployments ─────────────────────────────── */}
+      <div className={styles.sectionHeader}>
+        <Text className={styles.sectionTitle}>Recent Deployments</Text>
+        <Badge appearance="tint" color="informative" size="small">
+          {recentDeployments.length}
+        </Badge>
       </div>
 
-      {/* Legacy Credentials */}
-      <Divider />
-      <div className={styles.credentialsSection}>
-        <Switch
-          label="Show legacy FTPS credentials"
-          checked={showCredentials}
-          onChange={(_, d) => setShowCredentials(d.checked)}
-        />
-        {showCredentials && (
-          <Card className={styles.sourceCard}>
-            <CardHeader header={<Subtitle2>FTPS Credentials</Subtitle2>} />
-            <div className={styles.credentialsSection}>
-              <div className={styles.credentialField}>
-                <Body2 className={styles.credLabel}>FTPS Endpoint</Body2>
-                <Input
-                  readOnly
-                  value="ftps://waws-prod-eus-001.ftp.azurewebsites.windows.net"
-                  className={styles.credInput}
-                  contentAfter={<Button appearance="transparent" icon={<Copy20Regular />} size="small" />}
-                />
+      <div className={styles.timeline}>
+        {recentDeployments.map(entry => {
+          const isExpanded = expandedIds.includes(entry.id);
+          const displayMsg = entry.commitMessage ?? entry.message;
+          const truncatedMsg =
+            displayMsg.length > 60 ? `${displayMsg.slice(0, 60)}\u2026` : displayMsg;
+
+          return (
+            <div
+              key={entry.id}
+              className={mergeClasses(styles.entry, statusBorderMap[entry.status])}
+              onClick={() => toggleExpanded(entry.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') toggleExpanded(entry.id);
+              }}
+            >
+              <div className={styles.entryRow}>
+                <div className={mergeClasses(styles.avatar, getAvatarColor(entry.author))}>
+                  {entry.author.charAt(0).toUpperCase()}
+                </div>
+
+                <div className={styles.entryBody}>
+                  <Text className={styles.entryMessage} title={displayMsg}>
+                    {truncatedMsg}
+                  </Text>
+                  <div className={styles.entryMeta}>
+                    <span>{entry.author}</span>
+                    <span className={styles.dot} />
+                    <span>{formatRelativeTime(entry.timestamp)}</span>
+                    {entry.durationSeconds != null && (
+                      <>
+                        <span className={styles.dot} />
+                        <span>{formatDuration(entry.durationSeconds)}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className={styles.entryRight}>
+                  <StatusBadge status={entry.status} />
+                  <span
+                    className={mergeClasses(
+                      styles.expandIcon,
+                      isExpanded && styles.expandIconOpen,
+                    )}
+                  >
+                    <ChevronRight24Regular />
+                  </span>
+                </div>
               </div>
-              <div className={styles.credentialField}>
-                <Body2 className={styles.credLabel}>Username</Body2>
-                <Input
-                  readOnly
-                  value="my-node-app-eastus\$my-node-app-eastus"
-                  className={styles.credInput}
-                  contentAfter={<Button appearance="transparent" icon={<Copy20Regular />} size="small" />}
-                />
-              </div>
-              <div className={styles.credentialField}>
-                <Body2 className={styles.credLabel}>Password</Body2>
-                <Input
-                  readOnly
-                  type={showPassword ? 'text' : 'password'}
-                  value="SuP3rS3cr3tP@ssw0rd!"
-                  className={styles.credInput}
-                  contentAfter={
-                    <Button
-                      appearance="transparent"
-                      icon={showPassword ? <EyeOff20Regular /> : <Eye20Regular />}
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowPassword(!showPassword);
-                      }}
-                    />
-                  }
-                />
-              </div>
+
+              {isExpanded && entry.buildLogs && (
+                <pre className={styles.buildLogs}>
+                  {entry.buildLogs.join('\n')}
+                </pre>
+              )}
             </div>
-          </Card>
+          );
+        })}
+      </div>
+
+      <Divider />
+
+      {/* ── Legacy credentials ─────────────────────────────── */}
+      <div className={styles.credSection}>
+        <Button
+          appearance="subtle"
+          icon={showCredentials ? <EyeOff24Regular /> : <Eye24Regular />}
+          onClick={() => setShowCredentials(prev => !prev)}
+        >
+          {showCredentials ? 'Hide' : 'Show'} legacy credentials
+        </Button>
+
+        {showCredentials && (
+          <div className={styles.credContent}>
+            <div className={styles.credField}>
+              <Label htmlFor="ftps-endpoint">FTPS Endpoint</Label>
+              <Input
+                id="ftps-endpoint"
+                value="ftps://waws-prod-bay-001.ftp.azurewebsites.windows.net"
+                readOnly
+              />
+            </div>
+            <div className={styles.credField}>
+              <Label htmlFor="ftps-user">Username</Label>
+              <Input id="ftps-user" value="my-node-app\$my-node-app" readOnly />
+            </div>
+            <div className={styles.credField}>
+              <Label htmlFor="ftps-pass">Password</Label>
+              <Input id="ftps-pass" type="password" value="a1b2c3d4e5f6g7h8i9j0" readOnly />
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Setup Dialog */}
-      <SetupDialog />
+      {/* ── Setup dialog ───────────────────────────────────── */}
+      <Dialog
+        open={showSetup}
+        onOpenChange={(_, data) => {
+          if (!data.open) handleCancel();
+        }}
+      >
+        <DialogSurface className={styles.dialogSurface}>
+          <DialogBody>
+            <DialogTitle>Configure Deployment Source</DialogTitle>
+            <DialogContent>
+              {!selectedSource ? (
+                <div className={styles.sourceGrid}>
+                  {sourceOptions.map(opt => (
+                    <div
+                      key={opt.type}
+                      className={mergeClasses(
+                        styles.sourceOption,
+                        selectedSource === opt.type && styles.sourceOptionSelected,
+                      )}
+                      onClick={() => handleSourceSelect(opt.type)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') handleSourceSelect(opt.type);
+                      }}
+                    >
+                      <div className={styles.sourceOptionIcon}>
+                        {getSourceIcon(opt.type)}
+                      </div>
+                      <Text className={styles.sourceOptionName}>{opt.name}</Text>
+                      {opt.recommended && (
+                        <Badge appearance="filled" color="brand" size="small">
+                          Recommended
+                        </Badge>
+                      )}
+                      <Text className={styles.sourceOptionDesc}>{opt.description}</Text>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.configForm}>
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    className={styles.backLink}
+                    onClick={() => setSelectedSource(null)}
+                  >
+                    ← Back to sources
+                  </Button>
+
+                  {selectedSource === 'github' && (
+                    <>
+                      <div className={styles.formField}>
+                        <Label htmlFor="org-select">Organization</Label>
+                        <Combobox
+                          id="org-select"
+                          placeholder="Select organization"
+                          value={selectedOrg}
+                          onOptionSelect={(_, data) => {
+                            setSelectedOrg(data.optionText ?? '');
+                            setSelectedRepo('');
+                            setSelectedBranch('');
+                          }}
+                        >
+                          {availableOrgs.map(org => (
+                            <Option key={org} value={org}>
+                              {org}
+                            </Option>
+                          ))}
+                        </Combobox>
+                      </div>
+
+                      {selectedOrg && availableRepos[selectedOrg] && (
+                        <div className={styles.formField}>
+                          <Label htmlFor="repo-select">Repository</Label>
+                          <Combobox
+                            id="repo-select"
+                            placeholder="Select repository"
+                            value={selectedRepo}
+                            onOptionSelect={(_, data) => {
+                              setSelectedRepo(data.optionText ?? '');
+                              setSelectedBranch('');
+                            }}
+                          >
+                            {availableRepos[selectedOrg].map(repo => (
+                              <Option key={repo} value={repo}>
+                                {repo}
+                              </Option>
+                            ))}
+                          </Combobox>
+                        </div>
+                      )}
+
+                      {selectedRepo && (
+                        <div className={styles.formField}>
+                          <Label htmlFor="branch-select">Branch</Label>
+                          <Combobox
+                            id="branch-select"
+                            placeholder="Select branch"
+                            value={selectedBranch}
+                            onOptionSelect={(_, data) => {
+                              setSelectedBranch(data.optionText ?? '');
+                            }}
+                          >
+                            {availableBranches.map(branch => (
+                              <Option key={branch} value={branch}>
+                                {branch}
+                              </Option>
+                            ))}
+                          </Combobox>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {selectedSource !== 'github' && (
+                    <Text>
+                      Configuration for{' '}
+                      {sourceOptions.find(o => o.type === selectedSource)?.name ?? selectedSource}{' '}
+                      is not yet available in this preview.
+                    </Text>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={handleCancel}>
+                Cancel
+              </Button>
+              {selectedSource === 'github' && selectedOrg && selectedRepo && selectedBranch && (
+                <Button appearance="primary" onClick={handleConnect}>
+                  Connect
+                </Button>
+              )}
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </div>
   );
 };

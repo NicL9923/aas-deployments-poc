@@ -4,7 +4,6 @@ import {
   tokens,
   Input,
   Text,
-  Divider,
   mergeClasses,
 } from '@fluentui/react-components';
 import {
@@ -131,8 +130,6 @@ export const LeftNav = () => {
         <span className={styles.icon}><ShieldKeyhole24Regular /></span>
         <Text>Access control (IAM)</Text>
       </div>
-
-      <Divider />
 
       <div
         className={styles.sectionHeader}
