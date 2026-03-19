@@ -1,15 +1,7 @@
-import { useMemo } from 'react';
 import { makeStyles, tokens } from '@fluentui/react-components';
-import {
-  Globe24Regular,
-  ArrowSwap24Regular,
-  ArrowCounterclockwise24Regular,
-  ArrowClockwise24Regular,
-} from '@fluentui/react-icons';
 import { TopBar } from './TopBar';
 import { LeftNav } from './LeftNav';
 import { ResourceHeader } from './ResourceHeader';
-import { Toolbar } from './Toolbar';
 
 const useStyles = makeStyles({
   root: {
@@ -42,17 +34,8 @@ interface PortalShellProps {
   children: React.ReactNode;
 }
 
-const defaultToolbarItems = [
-  { key: 'browse', label: 'Browse', icon: <Globe24Regular /> },
-  { key: 'swap', label: 'Swap', icon: <ArrowSwap24Regular /> },
-  { key: 'restart', label: 'Restart', icon: <ArrowCounterclockwise24Regular /> },
-  { key: 'refresh', label: 'Refresh', icon: <ArrowClockwise24Regular /> },
-];
-
 export const PortalShell = ({ children }: PortalShellProps) => {
   const styles = useStyles();
-
-  const toolbarItems = useMemo(() => defaultToolbarItems, []);
 
   return (
     <div className={styles.root}>
@@ -61,7 +44,6 @@ export const PortalShell = ({ children }: PortalShellProps) => {
       <div className={styles.body}>
         <LeftNav />
         <div className={styles.content}>
-          <Toolbar items={toolbarItems} />
           <div className={styles.scrollArea}>
             {children}
           </div>
