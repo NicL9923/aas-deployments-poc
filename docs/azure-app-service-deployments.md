@@ -32,7 +32,7 @@ Where code lives. Options:
 - **Local Git** — push directly to a Kudu-managed Git remote
 - **External Git** — any publicly-reachable Git/Mercurial repo (Windows only)
 - **Local machine** — ZIP deploy, FTP, Web Deploy (no source control)
-- **Container registry** — ACR, Docker Hub, or private registries
+- **Container registry** — ACR, Docker Hub, or private registries+
 
 ### 1.2 Build Pipeline
 Who compiles/packages the code:

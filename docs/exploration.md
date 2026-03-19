@@ -94,33 +94,164 @@ aas-deployments-poc/
 
 ## Current Experience Analysis
 
-_To be populated with screenshots and observations from the Azure Portal._
+> Screenshots captured 2026-03-19 from `nl-testwebapp-1` (Linux, Node 22-LTS, Code publishing model).
 
-### Deployment Center — Settings Tab
+### Web App Overview
 
-> Awaiting screenshots
+![Overview](screenshots/02-webapp-overview.png)
+
+**Context:** Resource header + Essentials panel + tabbed Properties view. Left nav organizes blades into collapsible sections. The **Deployment** section contains two items: Deployment slots and Deployment Center. Toolbar includes Browse, Stop, Swap, Restart, Delete, Refresh, Download publish profile.
+
+**Notes:**
+- The Overview blade itself shows deployment-relevant info (Runtime Stack, Publishing model) but no deployment _status_ — you'd never know if a deploy is in progress or just failed from this screen.
+- "Download publish profile" is in the Overview toolbar but the credentials are in Deployment Center > FTPS Credentials. Split personality.
+
+---
+
+### Deployment Center — Settings Tab (Unconfigured)
+
+![Deployment Center - Settings](screenshots/04-deployment-center.png)
+
+**Tabs:** Settings | Containers (new) | Logs | FTPS Credentials
+
+**Toolbar:** Save, Discard, Refresh, Browse, Sync, Send us your feedback
+
+**Key elements:**
+- Info banner: "You are now in the production slot, which is not recommended for setting up CI/CD."
+- Instructional text: "Deploy and build code from your preferred source and build provider."
+- Single dropdown: **Source** → "Select a code source"
+
+---
+
+### Source Dropdown Options
+
+![Source Dropdown](screenshots/05-source-dropdown.png)
+
+Two groups in a flat `<select>`:
+
+**Continuous Deployment (CI/CD):**
+- GitHub
+- Bitbucket
+- Local Git
+- Azure Repos
+
+**Manual Deployment (Push):**
+- External Git
+- Publish files (new)
+
+**Observations:**
+- Just bold text headers in a dropdown — no icons, no descriptions, no visual hierarchy
+- GitHub and External Git get identical visual weight
+- No indication of which option is most common or recommended
+- "Publish files (new)" is intriguing — appears to be a newer addition
+- Missing: ZIP Deploy, Web Deploy, Run From Package aren't here (they're CLI/API-only methods)
+
+---
+
+### GitHub Source Selected
+
+![GitHub Source](screenshots/06-github-source-selected.png)
+
+**What appears when GitHub is selected:**
+- "Building with GitHub Actions" label with tiny "Change provider" link
+- Large explanatory paragraph about how GitHub Actions workflow files work
+- **Signed in as:** NicL9923 / "Change account"
+- Cascading dropdowns: Organization → Repository → Branch (each disabled until previous is filled)
+
+**Observations:**
+- The "Change provider" link is easy to miss — it controls whether you use GitHub Actions vs. Kudu, which is a significant choice buried in a tiny link
+- Walls of explanatory text that power users skip and beginners still find confusing
+- The cascading dropdown pattern means 3 sequential interactions minimum — no search, no autocomplete, no "paste a repo URL"
+- Huge empty space below the form — the page doesn't adapt to content
+
+---
 
 ### Deployment Center — Logs Tab
 
-> Awaiting screenshots
+![Logs Tab](screenshots/07-deployment-center-logs.png)
+
+**Empty state:** "CI/CD is not configured. To start, go to Settings tab and set up CI/CD."
+
+**Table columns:** Time | Deployment ID | Author | Status | Message
+
+**Toolbar:** Refresh, Delete
+
+**Observations:**
+- Plain flat table with no filtering, sorting indicators, or expandable rows
+- No timeline view, no visual status indicators (color-coded badges, etc.)
+- "Deployment ID" is a raw ID — not human-friendly
+- No way to see build logs inline — you'd need to click through
+- The empty state links back to Settings, which is good
+
+---
+
+### Deployment Center — FTPS Credentials Tab
+
+![FTPS Credentials](screenshots/08-ftps-credentials.png)
+
+**Sections:**
+1. **FTPS endpoint** — copy-able URL
+2. **Application-scope** — auto-generated username/password with Reset button
+3. **User-scope** — user-defined username/password/confirm with Reset button
+
+**Banner:** "FTP authentication has been disabled for this web app."
+
+**Observations:**
+- This is a legacy/advanced feature that most users never touch
+- Having its own top-level tab feels like over-promotion
+- The "disabled" banner + showing credentials anyway is confusing UX
+- Toolbar includes "Download publish profile" — redundant with Overview toolbar
+
+---
+
+### Deployment Center — Containers (new) Tab
+
+![Containers Tab](screenshots/10-containers-new-tab.png)
+
+**Purpose:** Sidecar container management (not the main app container).
+
+**Table columns:** Name | Type | Source | Image | Tag
+
+**Toolbar:** Refresh, Add (dropdown), Delete, Send us your feedback
+
+**Observations:**
+- This is for sidecar containers, not the primary deployment method
+- Empty scrollbar visible on an empty table (minor polish issue)
+- The "(new)" label in the tab name signals this is a recent addition
+- Separate from the main deployment flow — makes sense to keep distinct
+
+---
 
 ### Deployment Slots Blade
 
-> Awaiting screenshots
+![Deployment Slots](screenshots/09-deployment-slots.png)
 
-### Other Deployment-Related Blades
+**Empty state:** Centered illustration + "No slots have been added." + "Add slot" CTA button
 
-> Awaiting screenshots
+**Toolbar:** Save, Discard, Add, Swap, Logs, Refresh, Send us your feedback
+
+**Observations:**
+- Clean empty state — one of the better empty states in the portal actually
+- "Swap" button visible even with no slots (should be disabled/hidden?)
+- This is a separate blade from Deployment Center — slots and deployments are managed in different places
+- No visual representation of the production ↔ staging relationship
 
 ---
 
 ## Pain Points & Opportunities
 
-_To be populated as we analyze the current experience._
-
-| Area | Pain Point | Opportunity |
-|------|-----------|-------------|
-| | | |
+| # | Area | Pain Point | Opportunity |
+|---|------|-----------|-------------|
+| 1 | Source selection | Flat dropdown treats all 6 sources equally | Card-based selection with GitHub promoted; progressive disclosure for legacy options |
+| 2 | Build provider | "Change provider" is a tiny, easily-missed link | Make build provider selection explicit and visual, not hidden |
+| 3 | GitHub flow | 3 cascading dropdowns, no search/autocomplete | Repo URL paste support, search-as-you-type, remember recent repos |
+| 4 | Deployment status | Overview blade shows zero deployment info | Add deployment status badge/card to Overview |
+| 5 | Logs | Plain table, no inline log viewing, no filters | Timeline view, expandable rows with inline logs, status badges |
+| 6 | FTPS Credentials | Own top-level tab for a rarely-used feature | Move to Settings > Advanced or a collapsible section |
+| 7 | Slots + Deployments | Managed in separate blades, no visual connection | Integrate slot awareness into deployment view (deploy to which slot?) |
+| 8 | Information density | Walls of explanatory text, huge empty areas | Contextual tooltips, inline help, better use of space |
+| 9 | Slot swapping | No visual diff, just a confirmation modal | Visual comparison of slot configurations before swap |
+| 10 | Real-time feedback | No live build/deploy progress anywhere | Streaming build logs, deploy progress indicator |
 
 ---
 
