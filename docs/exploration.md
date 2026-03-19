@@ -47,6 +47,24 @@ To make the POC feel real, we'll mock the Azure Portal shell (navigation, breadc
 
 ---
 
+## Constraints
+
+### Frontend-Only — No Backend Changes
+
+This POC is strictly a **UX-layer redesign**. We are not changing, replacing, or extending any backend APIs, ARM resources, or platform behavior. The existing App Service deployment infrastructure stays exactly as-is. We're reshaping how users _interact_ with it, not how it _works_.
+
+### Full Feature Parity — Nothing Gets Dropped
+
+Every deployment method that exists today **must remain accessible** in the redesigned experience. We can (and should) reorganize, re-prioritize, and improve discoverability, but we cannot remove functionality. Concretely:
+
+- **Modern/popular options** (GitHub Actions, Azure Pipelines) → promoted, first-class flows
+- **Legacy/niche options** (FTP, External Git, Local Git, OneDrive) → still accessible, just not front-and-center
+- **All configuration knobs** → still reachable, possibly through progressive disclosure or "Advanced" sections
+
+Think of it as **editorial curation, not feature removal**. A user deploying via FTP should still be able to do so — they just won't see FTP competing for attention alongside GitHub Actions on the landing screen.
+
+---
+
 ## Approach
 
 1. **Screenshot & document** the current portal experience (all deployment-related blades)

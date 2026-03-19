@@ -12,9 +12,11 @@ Let's be honest: the Azure Portal's Deployment Center was designed in an era whe
 
 ### What I Think We Should Aim For
 
-**1. GitHub-first, not source-agnostic**
+**1. GitHub-first, not source-agnostic — but nothing disappears**
 
 The current UX treats GitHub, Azure DevOps, Bitbucket, Local Git, and External Git as equals in a flat dropdown. In reality, ~70%+ of new App Service deployments connect to GitHub. The UX should reflect this — make GitHub the hero path with a polished, opinionated flow. Other sources should be accessible but not competing for attention on the same screen.
+
+**Important constraint:** This is a UX-only redesign — no backend changes, and all existing deployment methods must remain accessible. We're curating the experience, not cutting features. Think "smart defaults + progressive disclosure" — FTP and External Git are still there, just not on the front page. This actually makes the design challenge more interesting: how do you make a screen feel clean and modern while still exposing 10+ deployment methods?
 
 **2. Real-time everything**
 
