@@ -5,9 +5,6 @@ import {
 } from '@fluentui/react-components';
 import {
   Globe24Regular,
-  Pin24Regular,
-  Star24Regular,
-  Dismiss24Regular,
 } from '@fluentui/react-icons';
 import { webApp } from '../../mock-data';
 
@@ -15,7 +12,6 @@ const useStyles = makeStyles({
   root: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingTop: tokens.spacingVerticalM,
     paddingBottom: tokens.spacingVerticalM,
     paddingLeft: tokens.spacingHorizontalL,
@@ -45,20 +41,6 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
   },
-  right: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-    color: tokens.colorNeutralForeground3,
-    cursor: 'pointer',
-  },
-  actionIcon: {
-    display: 'flex',
-    alignItems: 'center',
-    ':hover': {
-      color: tokens.colorNeutralForeground1,
-    },
-  },
 });
 
 export const ResourceHeader = () => {
@@ -74,11 +56,6 @@ export const ResourceHeader = () => {
           <Text className={styles.name}>{webApp.name}</Text>
           <Text className={styles.subtitle}>Web App</Text>
         </div>
-      </div>
-      <div className={styles.right}>
-        <span className={styles.actionIcon}><Pin24Regular /></span>
-        <span className={styles.actionIcon}><Star24Regular /></span>
-        <span className={styles.actionIcon}><Dismiss24Regular /></span>
       </div>
     </div>
   );
