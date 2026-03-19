@@ -12,7 +12,6 @@ import {
   DocumentText24Regular,
   ShieldKeyhole24Regular,
   ArrowSync24Regular,
-  LayerDiagonal24Regular,
   ChevronDown16Regular,
   ChevronRight16Regular,
 } from '@fluentui/react-icons';
@@ -140,31 +139,17 @@ export const LeftNav = () => {
       </div>
 
       {deploymentExpanded && (
-        <>
-          <div
-            className={mergeClasses(
-              styles.menuItem,
-              styles.childItem,
-              isActive('/deployment-center') && styles.menuItemActive,
-            )}
-            onClick={() => navigate('/deployment-center')}
-          >
-            <span className={styles.icon}><ArrowSync24Regular /></span>
-            <Text>Deployment center</Text>
-          </div>
-
-          <div
-            className={mergeClasses(
-              styles.menuItem,
-              styles.childItem,
-              isActive('/deployment-slots') && styles.menuItemActive,
-            )}
-            onClick={() => navigate('/deployment-slots')}
-          >
-            <span className={styles.icon}><LayerDiagonal24Regular /></span>
-            <Text>Deployment slots</Text>
-          </div>
-        </>
+        <div
+          className={mergeClasses(
+            styles.menuItem,
+            styles.childItem,
+            isActive('/deployment-center') && styles.menuItemActive,
+          )}
+          onClick={() => navigate('/deployment-center')}
+        >
+          <span className={styles.icon}><ArrowSync24Regular /></span>
+          <Text>Deployment center</Text>
+        </div>
       )}
 
       <div

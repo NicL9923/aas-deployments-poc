@@ -24,9 +24,21 @@ import {
   Tooltip,
   Divider,
   Label,
+  Badge,
+  ProgressBar,
+  SpinButton,
+  Subtitle2,
+  Caption1,
+  Dialog,
+  DialogSurface,
+  DialogBody,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@fluentui/react-components';
 import {
   ArrowSyncRegular,
+  ArrowSwapRegular,
   DeleteRegular,
   ChevronDownRegular,
   ChevronRightRegular,
@@ -34,12 +46,14 @@ import {
   EyeRegular,
   EyeOffRegular,
   EditRegular,
+  LayerDiagonalRegular,
   PlugDisconnectedRegular,
 } from '@fluentui/react-icons';
 import type { DeploymentSourceType, DeploymentStatus } from '../../types';
 import {
   deploymentSource,
   deploymentHistory,
+  deploymentSlots,
   availableOrgs,
   availableRepos,
   availableBranches,
@@ -260,6 +274,95 @@ const useStyles = makeStyles({
       color: tokens.colorPaletteRedForeground2,
     },
   },
+
+  // Slot selector bar
+  slotSelectorBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    paddingBottom: tokens.spacingVerticalM,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
+  },
+  slotDropdown: {
+    minWidth: '280px',
+  },
+  slotOptionContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
+  slotOptionDot: {
+    display: 'inline-block',
+    width: '8px',
+    height: '8px',
+    borderRadius: tokens.borderRadiusCircular,
+    flexShrink: 0,
+  },
+  slotOptionDotRunning: {
+    backgroundColor: tokens.colorPaletteGreenBackground3,
+  },
+  slotOptionDotStopped: {
+    backgroundColor: tokens.colorPaletteRedBackground3,
+  },
+  slotOptionTraffic: {
+    color: tokens.colorNeutralForeground3,
+    fontSize: tokens.fontSizeBase200,
+  },
+  // Manage slots dialog
+  manageSlotsDialogSurface: {
+    maxWidth: '640px',
+  },
+  manageDialogContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalL,
+  },
+  manageTrafficRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalL,
+  },
+  manageTrafficSlotInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+    minWidth: '160px',
+  },
+  manageTrafficSpinButton: {
+    width: '100px',
+  },
+  manageTrafficProgressBar: {
+    flexGrow: 1,
+    minWidth: '100px',
+  },
+  // Swap dialog
+  slotSwapDialogSurface: {
+    maxWidth: '500px',
+  },
+  swapDialogContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+  },
+  swapSlotRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: tokens.spacingHorizontalL,
+  },
+  swapSlotName: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: tokens.spacingVerticalXXS,
+    paddingTop: tokens.spacingVerticalM,
+    paddingBottom: tokens.spacingVerticalM,
+    paddingLeft: tokens.spacingHorizontalL,
+    paddingRight: tokens.spacingHorizontalL,
+    backgroundColor: tokens.colorNeutralBackground3,
+    borderRadius: tokens.borderRadiusMedium,
+    minWidth: '120px',
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -294,6 +397,27 @@ export const SafeDeploymentCenter = () => {
   // -- FTPS -----------------------------------------------------------------
   const [showAppPassword, setShowAppPassword] = useState(false);
   const [showUserPassword, setShowUserPassword] = useState(false);
+
+  // -- Slot selector ----------------------------------------------------------
+  const [selectedSlot, setSelectedSlot] = useState('production');
+  const [slotSwapDialogOpen, setSlotSwapDialogOpen] = useState(false);
+  const [manageSlotsDialogOpen, setManageSlotsDialogOpen] = useState(false);
+  const [traffic, setTraffic] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    for (const slot of deploymentSlots) {
+      initial[slot.name] = slot.trafficPercentage;
+    }
+    return initial;
+  });
+
+  const handleTrafficChange = (slotName: string, value: number) => {
+    setTraffic((prev) => {
+      const clamped = Math.max(0, Math.min(100, Math.round(value)));
+      const otherSlot = deploymentSlots.find((s) => s.name !== slotName);
+      if (!otherSlot) return prev;
+      return { ...prev, [slotName]: clamped, [otherSlot.name]: 100 - clamped };
+    });
+  };
 
   // -- Derived values -------------------------------------------------------
   const orgRepos = useMemo(
@@ -817,6 +941,124 @@ export const SafeDeploymentCenter = () => {
   // =========================================================================
   return (
     <div className={styles.root}>
+      {/* ── Slot selector ──────────────────────────────── */}
+      <div className={styles.slotSelectorBar}>
+        <Dropdown
+          className={styles.slotDropdown}
+          value={`${selectedSlot} — ${traffic[selectedSlot]}% traffic`}
+          selectedOptions={[selectedSlot]}
+          onOptionSelect={(_, data) => {
+            if (data.optionValue) setSelectedSlot(data.optionValue);
+          }}
+        >
+          {deploymentSlots.map((slot) => (
+            <Option key={slot.name} value={slot.name} text={slot.name}>
+              <div className={styles.slotOptionContent}>
+                <span
+                  className={mergeClasses(
+                    styles.slotOptionDot,
+                    slot.status === 'Running' ? styles.slotOptionDotRunning : styles.slotOptionDotStopped,
+                  )}
+                />
+                <Text weight="semibold">{slot.name}</Text>
+                {slot.isProduction && (
+                  <Badge size="small" color="brand" appearance="tint">prod</Badge>
+                )}
+                <Text className={styles.slotOptionTraffic}>— {traffic[slot.name]}% traffic</Text>
+              </div>
+            </Option>
+          ))}
+        </Dropdown>
+
+        <Button
+          appearance="subtle"
+          icon={<ArrowSwapRegular />}
+          onClick={() => setSlotSwapDialogOpen(true)}
+        >
+          Swap
+        </Button>
+
+        <Button
+          appearance="subtle"
+          icon={<LayerDiagonalRegular />}
+          onClick={() => setManageSlotsDialogOpen(true)}
+        >
+          Manage slots
+        </Button>
+      </div>
+
+      {/* ── Swap dialog ────────────────────────────────── */}
+      <Dialog open={slotSwapDialogOpen} onOpenChange={(_, data) => setSlotSwapDialogOpen(data.open)}>
+        <DialogSurface className={styles.slotSwapDialogSurface}>
+          <DialogBody>
+            <DialogTitle>Swap deployment slots</DialogTitle>
+            <DialogContent className={styles.swapDialogContent}>
+              <Text>Swapping will exchange content and configuration between slots.</Text>
+              <div className={styles.swapSlotRow}>
+                <div className={styles.swapSlotName}>
+                  <Subtitle2>production</Subtitle2>
+                  <Caption1>{traffic['production']}% traffic</Caption1>
+                </div>
+                <ArrowSwapRegular />
+                <div className={styles.swapSlotName}>
+                  <Subtitle2>staging</Subtitle2>
+                  <Caption1>{traffic['staging']}% traffic</Caption1>
+                </div>
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setSlotSwapDialogOpen(false)}>Cancel</Button>
+              <Button appearance="primary" onClick={() => setSlotSwapDialogOpen(false)}>Confirm swap</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      {/* ── Manage slots dialog ────────────────────────── */}
+      <Dialog open={manageSlotsDialogOpen} onOpenChange={(_, data) => setManageSlotsDialogOpen(data.open)}>
+        <DialogSurface className={styles.manageSlotsDialogSurface}>
+          <DialogBody>
+            <DialogTitle>Manage deployment slots</DialogTitle>
+            <DialogContent className={styles.manageDialogContent}>
+              <Text weight="semibold">Traffic routing</Text>
+              <Divider />
+              {deploymentSlots.map((slot) => (
+                <div key={slot.name} className={styles.manageTrafficRow}>
+                  <div className={styles.manageTrafficSlotInfo}>
+                    <Subtitle2>{slot.name}</Subtitle2>
+                    {slot.isProduction && (
+                      <Badge size="small" color="brand" appearance="tint">prod</Badge>
+                    )}
+                  </div>
+                  <SpinButton
+                    className={styles.manageTrafficSpinButton}
+                    value={traffic[slot.name]}
+                    min={0}
+                    max={100}
+                    step={5}
+                    onChange={(_ev, data) => {
+                      if (data.value != null) handleTrafficChange(slot.name, data.value);
+                    }}
+                  />
+                  <ProgressBar
+                    className={styles.manageTrafficProgressBar}
+                    value={traffic[slot.name] / 100}
+                    thickness="large"
+                    shape="rounded"
+                  />
+                </div>
+              ))}
+              <Divider />
+              <Button appearance="outline" icon={<LayerDiagonalRegular />}>Add slot</Button>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setManageSlotsDialogOpen(false)}>Close</Button>
+              <Button appearance="primary" onClick={() => setManageSlotsDialogOpen(false)}>Save</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
       <TabList
         selectedValue={selectedTab}
         onTabSelect={(_, data) => setSelectedTab(data.value as TabValue)}
