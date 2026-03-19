@@ -803,7 +803,7 @@ https://<app>.scm.azurewebsites.net/api/logstream
 - Primary use: sidecar containers
 
 **Windows Containers:**
-- Supported on Premium v3 and Isolated v2 plans
+- Supported on Premium v3 and Isolated v2 pla
 - Full Windows Server Core or Nano Server images
 - Longer cold start times
 - No SSH access (unlike Linux containers)
