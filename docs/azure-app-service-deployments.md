@@ -17,6 +17,7 @@
 8. [Monitoring & Logs](#8-monitoring--logs)
 9. [Platform-Specific Behaviors](#9-platform-specific-behaviors)
 10. [Current UX Pain Points](#10-current-ux-pain-points)
+11. [Hands-On Feedback: GitHub CI/CD Setup & Deployment Flow](#11-hands-on-feedback-github-cicd-setup--deployment-flow)
 
 ---
 
@@ -920,6 +921,92 @@ https://<app>.scm.azurewebsites.net/api/logstream
    - No unified view of "what's deployed" for containers
    - Image tag management / rollback is manual
    - No built-in vulnerability scanning integration in the deploy flow
+
+## 11. Hands-On Feedback: GitHub CI/CD Setup & Deployment Flow
+
+> **Source:** Manual walkthrough deploying a Node.js (Express + Vite React) app to App Service via GitHub Actions with OIDC auth and deployment slots. March 2026.
+
+### 11.1 Initial Setup UX
+
+1. **Save action is hidden and non-obvious:**
+   - After configuring CI/CD, the Save button requires scrolling back up — easy to miss entirely.
+   - No visible dirty-state indicator (button enablement, dot badge, etc.) to signal that configuration has changed and needs saving.
+   - **Recommendation:** Use a sticky footer save bar (similar to the Configuration blade) with clear enabled/disabled states.
+
+2. **No guardrails against configuring CI/CD on the production slot:**
+   - Users can set up continuous deployment directly on the production slot with no warning.
+   - The recommended pattern (CI/CD → staging slot → swap to production) isn't surfaced anywhere in the flow.
+   - **Recommendation:** Add a prominent nudge when configuring CI/CD on a production slot: *"Recommended: Set up CI/CD on a staging slot, then swap to production when ready."* Include a one-click "Create a staging slot" action inline.
+
+3. **"Use available workflow" option is unclear:**
+   - Doesn't communicate that you must use the specific file path provided.
+   - Users may assume they can point to any workflow file.
+   - **Recommendation:** Reword to something like *"Use workflow file at this path"* with the path shown inline and editable.
+
+### 11.2 Deployment Logs & Monitoring
+
+4. **Logs aren't in your face — they should be:**
+   - After triggering a deployment, the UX provides a link and a single status message rather than streaming logs inline.
+   - On first deployment, clicking through leads to an empty Logs tab ("No deployments found") that requires manual refresh.
+   - Subsequent deployments do show polling, but with an oversized spinner that feels dated.
+   - **Recommendation:** Stream deployment logs inline in the Deployment Center immediately after save/trigger. Auto-poll from the start with a subtle, modern loading indicator.
+
+5. **"App Logs" layout is confusing:**
+   - The "Show logs" expansion within App Logs renders a code block at the very bottom of the page, completely disconnected from the step it belongs to.
+   - Deployment steps and their log output should be visually coupled.
+   - **Recommendation:** Expand logs inline under each step (accordion-style), not in a separate block at the page bottom.
+
+6. **No deployment status card or "latest deployment" summary:**
+   - There's no at-a-glance view of the current deployment state. Users have to dig into the Logs tab.
+   - The "Browse" button in the command bar is the only way to reach the deployed site — easy to miss and feels disconnected.
+   - **Recommendation:** Add a deployment status card (either on the Logs tab or a new Overview landing tab) showing: last deployment timestamp, status, commit SHA, and a prominent "View site" link.
+
+7. **Missing "View deployed site" link in context:**
+   - No direct link to the deployed site anywhere near the deployment logs or status.
+   - Users have to know about the "Browse" command bar button, which is not discoverable.
+   - **Recommendation:** Add a "View site" link next to every deployment entry and in the deployment status card.
+
+8. **No cross-reference between deployment logs and runtime logs:**
+   - When a deployment fails at startup (app crashes), there's no link from the deployment log to the logstream / runtime logs that would help diagnose it.
+   - These are completely separate blades with no awareness of each other.
+   - **Recommendation:** On deployment failure, surface a link to the runtime logstream filtered to the relevant time window. Even a "View runtime logs from this deployment" action would dramatically speed up debugging.
+
+9. **Deployment logs are deletable:**
+   - Users can delete deployment log entries. This is unexpected and potentially dangerous — deployment history should be an audit trail, not user-editable.
+   - **Recommendation:** Remove the delete action, or gate it behind an elevated permission with a confirmation dialog.
+
+### 11.3 Deployment Lifecycle Clarity
+
+10. **No clear signal for when a deployment is actually live:**
+    - After a successful deployment, it's unclear when the new code is actually serving traffic. There's no "warming up" / "live" / "draining" status.
+    - Instance-level clarity is missing — users don't know if all instances have picked up the new code.
+    - **Recommendation:** Show deployment lifecycle phases: Deployed → Warming Up → Live. If multiple instances exist, show per-instance rollout status.
+
+11. **"Sync" button in the command bar is cryptic:**
+    - The "Sync" button (for syncing function triggers/metadata) is prominent but irrelevant for most Node.js / code-based apps.
+    - **Recommendation:** Hide or de-emphasize for non-Functions app types.
+
+### 11.4 Slot Swap Conceptual Clarity
+
+12. **Swap semantics aren't explained inline:**
+    - Slot swaps are a **true bidirectional swap**, not a one-directional "promote to production." Both slots exchange their payloads simultaneously.
+    - This is intentional — it preserves the previous production payload in the staging slot for instant rollback — but it surprises most users who expect promotion semantics.
+    - **Recommendation:** Add a brief inline explanation in the swap confirmation dialog: *"Swap exchanges both slots: staging → production and production → staging. This preserves your previous production deployment in the staging slot for instant rollback."* Consider a small diagram showing the bidirectional exchange.
+
+### 11.5 Summary of Top Recommendations
+
+| Priority | Issue | Recommendation |
+|----------|-------|----------------|
+| **P0** | Logs not inline / disconnected from trigger | Stream deployment logs inline in Deployment Center |
+| **P0** | No runtime log cross-reference on failure | Link to logstream from failed deployment entries |
+| **P0** | No "View site" link in deployment context | Add link next to every deployment entry + status card |
+| **P1** | No staging slot guidance during setup | Nudge + "Create staging slot" CTA on prod slot CI/CD setup |
+| **P1** | Unclear when deployment is live | Show deployment lifecycle phases + instance rollout status |
+| **P1** | Swap semantics not explained | Inline explanation in swap confirmation dialog |
+| **P2** | Save button hidden, no dirty state | Sticky footer save bar with visible state change |
+| **P2** | "Use available workflow" unclear | Reword with inline path display |
+| **P2** | Deletable deployment logs | Remove or gate behind elevated permissions |
+| **P2** | "Sync" button prominent but irrelevant | Hide for non-Functions apps |
 
 ---
 
