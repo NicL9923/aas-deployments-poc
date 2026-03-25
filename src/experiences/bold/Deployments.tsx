@@ -37,13 +37,11 @@ import {
   Label,
   Tooltip,
   SpinButton,
-  Caption1,
   Subtitle2,
 } from '@fluentui/react-components';
 import {
   BranchFork24Regular,
   Rocket24Regular,
-  Open24Regular,
   Settings24Regular,
   ChevronRight24Regular,
   ArrowUpload24Regular,

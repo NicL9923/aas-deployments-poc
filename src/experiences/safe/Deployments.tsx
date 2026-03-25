@@ -28,7 +28,6 @@ import {
   ProgressBar,
   SpinButton,
   Subtitle2,
-  Caption1,
   Dialog,
   DialogSurface,
   DialogBody,
@@ -40,7 +39,6 @@ import {
 import {
   ArrowSyncRegular,
   ArrowSwapRegular,
-  DeleteRegular,
   ChevronDownRegular,
   ChevronRightRegular,
   CopyRegular,
