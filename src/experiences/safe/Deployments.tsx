@@ -33,10 +33,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Checkbox,
+  Link,
 } from '@fluentui/react-components';
 import {
-  Info16Regular,
   ArrowSyncRegular,
   ArrowSwapRegular,
   DeleteRegular,
@@ -50,6 +49,7 @@ import {
   PlugDisconnectedRegular,
   BranchFork16Regular,
   Open24Regular,
+  DocumentText24Regular,
 } from '@fluentui/react-icons';
 import type { DeploymentSourceType, DeploymentStatus } from '../../types';
 import {
@@ -63,6 +63,7 @@ import {
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { StreamingLogViewer } from '../../components/shared/StreamingLogViewer';
 import { DeploymentPhasePills } from '../../components/shared/DeploymentPhasePills';
+import { SwapDialog } from '../../components/shared/SwapDialog';
 import { formatRelativeTime, formatDuration } from '../../utils';
 
 // ---------------------------------------------------------------------------
@@ -314,39 +315,6 @@ const useStyles = makeStyles({
     flexGrow: 1,
     minWidth: '100px',
   },
-  // Swap dialog
-  slotSwapDialogSurface: {
-    maxWidth: '500px',
-  },
-  swapDialogContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalM,
-  },
-  swapSlotRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: tokens.spacingHorizontalL,
-  },
-  swapSlotName: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: tokens.spacingVerticalXXS,
-    paddingTop: tokens.spacingVerticalM,
-    paddingBottom: tokens.spacingVerticalM,
-    paddingLeft: tokens.spacingHorizontalL,
-    paddingRight: tokens.spacingHorizontalL,
-    backgroundColor: tokens.colorNeutralBackground3,
-    borderRadius: tokens.borderRadiusMedium,
-    minWidth: '120px',
-  },
-  swapPreviewRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-  },
 });
 
 // ---------------------------------------------------------------------------
@@ -382,7 +350,6 @@ export const SafeDeployments = () => {
   const [selectedSlot, setSelectedSlot] = useState('production');
   const [slotSwapDialogOpen, setSlotSwapDialogOpen] = useState(false);
   const currentSlotUrl = deploymentSlots.find(s => s.name === selectedSlot)?.url ?? '';
-  const [swapWithPreview, setSwapWithPreview] = useState(false);
   const [manageSlotsDialogOpen, setManageSlotsDialogOpen] = useState(false);
   const [traffic, setTraffic] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
@@ -550,6 +517,12 @@ export const SafeDeployments = () => {
                 <Text className={styles.fieldValue}>
                   {buildProviderLabels[deploymentSource.buildProvider]}
                 </Text>
+              </div>
+              <div className={styles.fieldGroup}>
+                <Label className={styles.fieldLabel}>URL</Label>
+                <Link href={currentSlotUrl} target="_blank" appearance="subtle">
+                  {currentSlotUrl}
+                </Link>
               </div>
             </div>
 
@@ -753,11 +726,13 @@ export const SafeDeployments = () => {
                   </TableCell>
                   <TableCell className={styles.colTime}>
                     <Tooltip content={entry.timestamp} relationship="description">
-                      <Text>{formatRelativeTime(entry.timestamp)}</Text>
+                      <Text>Deployed {formatRelativeTime(entry.timestamp)}</Text>
                     </Tooltip>
                   </TableCell>
                   <TableCell className={styles.colDuration}>
-                    {formatDuration(entry.durationSeconds)}
+                    {entry.durationSeconds != null
+                      ? `took ${formatDuration(entry.durationSeconds)}`
+                      : '—'}
                   </TableCell>
                   <TableCell className={styles.colActions}>
                     <Button
@@ -995,53 +970,18 @@ export const SafeDeployments = () => {
         >
           Browse
         </Button>
+
+        <Button appearance="subtle" icon={<DocumentText24Regular />}>
+          Activity log
+        </Button>
       </div>
 
       {/* ── Swap dialog────────────────────────────────── */}
-      <Dialog open={slotSwapDialogOpen} onOpenChange={(_, data) => setSlotSwapDialogOpen(data.open)}>
-        <DialogSurface className={styles.slotSwapDialogSurface}>
-          <DialogBody>
-            <DialogTitle>Swap deployment slots</DialogTitle>
-            <DialogContent className={styles.swapDialogContent}>
-              <MessageBar intent="info">
-                <MessageBarBody>
-                  Swapping exchanges both slots simultaneously — staging content moves to production, and production content moves to staging. This preserves your previous production deployment for instant rollback.
-                </MessageBarBody>
-              </MessageBar>
-              <div className={styles.swapSlotRow}>
-                <div className={styles.swapSlotName}>
-                  <Subtitle2>production</Subtitle2>
-                  <Caption1>{traffic['production']}% traffic</Caption1>
-                </div>
-                <ArrowSwapRegular />
-                <div className={styles.swapSlotName}>
-                  <Subtitle2>staging</Subtitle2>
-                  <Caption1>{traffic['staging']}% traffic</Caption1>
-                </div>
-              </div>
-              <div className={styles.swapPreviewRow}>
-                <Checkbox
-                  checked={swapWithPreview}
-                  onChange={(_, data) => setSwapWithPreview(!!data.checked)}
-                  label="Swap with preview"
-                />
-                <Tooltip
-                  content="First applies the target slot's settings to the source so you can verify the app works with production configuration, then completes the swap after your approval."
-                  relationship="description"
-                >
-                  <Info16Regular />
-                </Tooltip>
-              </div>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setSlotSwapDialogOpen(false)}>Cancel</Button>
-              <Button appearance="primary" onClick={() => setSlotSwapDialogOpen(false)}>
-                {swapWithPreview ? 'Start preview' : 'Confirm swap'}
-              </Button>
-            </DialogActions>
-          </DialogBody>
-        </DialogSurface>
-      </Dialog>
+      <SwapDialog
+        open={slotSwapDialogOpen}
+        onOpenChange={setSlotSwapDialogOpen}
+        slots={deploymentSlots}
+      />
 
       {/* ── Manage slots dialog ────────────────────────── */}
       <Dialog open={manageSlotsDialogOpen} onOpenChange={(_, data) => setManageSlotsDialogOpen(data.open)}>

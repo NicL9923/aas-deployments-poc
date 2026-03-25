@@ -1,21 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Badge,
   Button,
-  Dialog,
-  DialogActions,
-  DialogBody,
-  DialogContent,
-  DialogSurface,
-  DialogTitle,
-  DialogTrigger,
-  Dropdown,
-  Label,
   makeStyles,
   mergeClasses,
-  MessageBar,
-  MessageBarBody,
-  Option,
   Table,
   TableBody,
   TableCell,
@@ -28,10 +16,8 @@ import {
   Toolbar,
   ToolbarButton,
   Tooltip,
-  Checkbox,
 } from '@fluentui/react-components';
 import {
-  Info16Regular,
   AddCircleRegular,
   ArrowSwapRegular,
   ArrowSyncRegular,
@@ -40,7 +26,7 @@ import {
 } from '@fluentui/react-icons';
 import { deploymentSlots } from '../../mock-data';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import type { DeploymentSlot } from '../../types';
+import { SwapDialog } from '../../components/shared/SwapDialog';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -126,53 +112,9 @@ const useStyles = makeStyles({
     alignItems: 'center',
     gap: tokens.spacingHorizontalS,
   },
-  // Swap dialog
-  dialogContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalM,
-  },
-  dropdownRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalM,
-  },
-  dropdownField: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalXS,
-    flex: 1,
-  },
-  swapIconCenter: {
-    marginTop: tokens.spacingVerticalL,
-  },
-  comparisonSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalS,
-  },
-  comparisonTable: {
-    width: '100%',
-  },
-  diffRow: {
-    backgroundColor: tokens.colorPaletteYellowBackground1,
-  },
-  slotSettingIcon: {
-    marginLeft: tokens.spacingHorizontalXXS,
-    fontSize: tokens.fontSizeBase200,
-  },
-  settingValue: {
-    fontFamily: tokens.fontFamilyMonospace,
-    fontSize: tokens.fontSizeBase200,
-  },
   muted: {
     color: tokens.colorNeutralForeground3,
     fontSize: tokens.fontSizeBase200,
-  },
-  swapPreviewRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
   },
 });
 
@@ -204,79 +146,6 @@ const columns = [
 ];
 
 // ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-interface SettingsComparisonProps {
-  source: DeploymentSlot;
-  target: DeploymentSlot;
-}
-
-const SettingsComparison = ({ source, target }: SettingsComparisonProps) => {
-  const styles = useStyles();
-
-  const allSettingNames = useMemo(() => {
-    const names = new Set<string>();
-    source.appSettings.forEach((s) => names.add(s.name));
-    target.appSettings.forEach((s) => names.add(s.name));
-    return Array.from(names);
-  }, [source, target]);
-
-  const getSettingValue = (slot: DeploymentSlot, name: string) =>
-    slot.appSettings.find((s) => s.name === name)?.value ?? '—';
-
-  const isSlotSetting = (name: string) =>
-    source.appSettings.find((s) => s.name === name)?.isSlotSetting ||
-    target.appSettings.find((s) => s.name === name)?.isSlotSetting;
-
-  return (
-    <div className={styles.comparisonSection}>
-      <Text weight="semibold" size={300}>
-        Configuration comparison
-      </Text>
-      <Table className={styles.comparisonTable} size="extra-small">
-        <TableHeader>
-          <TableRow>
-            <TableHeaderCell>Setting</TableHeaderCell>
-            <TableHeaderCell>Source ({source.name})</TableHeaderCell>
-            <TableHeaderCell>Target ({target.name})</TableHeaderCell>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {allSettingNames.map((name) => {
-            const srcVal = getSettingValue(source, name);
-            const tgtVal = getSettingValue(target, name);
-            const isDiff = srcVal !== tgtVal;
-            const sticky = isSlotSetting(name);
-
-            return (
-              <TableRow key={name} className={isDiff ? styles.diffRow : undefined}>
-                <TableCell>
-                  <Text size={200}>
-                    {name}
-                    {sticky && (
-                      <Tooltip content="Slot setting — will NOT be swapped" relationship="description">
-                        <span className={styles.slotSettingIcon}>🔒</span>
-                      </Tooltip>
-                    )}
-                  </Text>
-                </TableCell>
-                <TableCell>
-                  <Text className={styles.settingValue}>{srcVal}</Text>
-                </TableCell>
-                <TableCell>
-                  <Text className={styles.settingValue}>{tgtVal}</Text>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -285,22 +154,8 @@ export const SafeDeploymentSlots = () => {
   const slots = deploymentSlots;
 
   const [showSwapDialog, setShowSwapDialog] = useState(false);
-  const [swapWithPreview, setSwapWithPreview] = useState(false);
-  const [selectedSourceSlot, setSelectedSourceSlot] = useState('staging');
-  const [selectedTargetSlot, setSelectedTargetSlot] = useState('production');
-
-  const sourceSlot = useMemo(
-    () => slots.find((s) => s.name === selectedSourceSlot),
-    [slots, selectedSourceSlot],
-  );
-  const targetSlot = useMemo(
-    () => slots.find((s) => s.name === selectedTargetSlot),
-    [slots, selectedTargetSlot],
-  );
 
   const openSwapDialog = useCallback(() => {
-    setSelectedSourceSlot('staging');
-    setSelectedTargetSlot('production');
     setShowSwapDialog(true);
   }, []);
 
@@ -445,99 +300,11 @@ export const SafeDeploymentSlots = () => {
       </Table>
 
       {/* ---- Swap dialog ---- */}
-      <Dialog open={showSwapDialog} onOpenChange={(_, data) => setShowSwapDialog(data.open)}>
-        <DialogSurface>
-          <DialogBody>
-            <DialogTitle>Swap deployment slots</DialogTitle>
-            <DialogContent className={styles.dialogContent}>
-              <MessageBar intent="info">
-                <MessageBarBody>
-                  Swapping exchanges both slots simultaneously — staging content moves to production, and production content moves to staging. This preserves your previous production deployment for instant rollback.
-                </MessageBarBody>
-              </MessageBar>
-              <Text>
-                Swapping will exchange the content and configurations between the source and target
-                slots.
-              </Text>
-
-              {/* Source / Target dropdowns */}
-              <div className={styles.dropdownRow}>
-                <div className={styles.dropdownField}>
-                  <Label htmlFor="swap-source">Source</Label>
-                  <Dropdown
-                    id="swap-source"
-                    value={selectedSourceSlot}
-                    selectedOptions={[selectedSourceSlot]}
-                    onOptionSelect={(_, data) => {
-                      if (data.optionValue) setSelectedSourceSlot(data.optionValue);
-                    }}
-                  >
-                    {slots.map((s) => (
-                      <Option key={s.name} value={s.name}>
-                        {s.name}
-                      </Option>
-                    ))}
-                  </Dropdown>
-                </div>
-
-                <ArrowSwapRegular className={styles.swapIconCenter} />
-
-                <div className={styles.dropdownField}>
-                  <Label htmlFor="swap-target">Target</Label>
-                  <Dropdown
-                    id="swap-target"
-                    value={selectedTargetSlot}
-                    selectedOptions={[selectedTargetSlot]}
-                    onOptionSelect={(_, data) => {
-                      if (data.optionValue) setSelectedTargetSlot(data.optionValue);
-                    }}
-                  >
-                    {slots.map((s) => (
-                      <Option key={s.name} value={s.name}>
-                        {s.name}
-                      </Option>
-                    ))}
-                  </Dropdown>
-                </div>
-              </div>
-
-              {/* Settings comparison */}
-              {sourceSlot && targetSlot && (
-                <SettingsComparison source={sourceSlot} target={targetSlot} />
-              )}
-
-              <div className={styles.swapPreviewRow}>
-                <Checkbox
-                  checked={swapWithPreview}
-                  onChange={(_, data) => setSwapWithPreview(!!data.checked)}
-                  label="Swap with preview"
-                />
-                <Tooltip
-                  content="First applies the target slot's settings to the source so you can verify the app works with production configuration, then completes the swap after your approval."
-                  relationship="description"
-                >
-                  <Info16Regular />
-                </Tooltip>
-              </div>
-
-              <MessageBar intent="warning">
-                <MessageBarBody>
-                  Slot settings (marked with 🔒) will NOT be swapped.
-                </MessageBarBody>
-              </MessageBar>
-            </DialogContent>
-
-            <DialogActions>
-              <DialogTrigger disableButtonEnhancement>
-                <Button>Cancel</Button>
-              </DialogTrigger>
-              <Button appearance="primary" icon={<ArrowSwapRegular />}>
-                {swapWithPreview ? 'Start preview' : 'Swap'}
-              </Button>
-            </DialogActions>
-          </DialogBody>
-        </DialogSurface>
-      </Dialog>
+      <SwapDialog
+        open={showSwapDialog}
+        onOpenChange={setShowSwapDialog}
+        slots={deploymentSlots}
+      />
     </div>
   );
 };

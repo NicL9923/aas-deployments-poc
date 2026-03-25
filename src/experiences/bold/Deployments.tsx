@@ -7,10 +7,12 @@ import {
   availableOrgs,
   availableRepos,
   availableBranches,
+  webApp,
 } from '../../mock-data';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { StreamingLogViewer } from '../../components/shared/StreamingLogViewer';
 import { DeploymentPhasePills } from '../../components/shared/DeploymentPhasePills';
+import { SwapDialog } from '../../components/shared/SwapDialog';
 import { formatRelativeTime, formatDuration } from '../../utils';
 import {
   makeStyles,
@@ -19,6 +21,8 @@ import {
   Badge,
   Button,
   Combobox,
+  Dropdown,
+  Link,
   Option,
   ProgressBar,
   Dialog,
@@ -35,12 +39,8 @@ import {
   SpinButton,
   Caption1,
   Subtitle2,
-  MessageBar,
-  MessageBarBody,
-  Checkbox,
 } from '@fluentui/react-components';
 import {
-  Info16Regular,
   BranchFork24Regular,
   Rocket24Regular,
   Open24Regular,
@@ -54,6 +54,7 @@ import {
   EyeOff24Regular,
   ArrowSwap24Regular,
   LayerDiagonal24Regular,
+  DocumentText24Regular,
 } from '@fluentui/react-icons';
 
 // ─── Static data ────────────────────────────────────────────────────────────
@@ -99,14 +100,7 @@ const useStyles = makeStyles({
     paddingTop: tokens.spacingVerticalXL,
     paddingBottom: tokens.spacingVerticalXXL,
   },
-  pageTitle: {
-    fontSize: tokens.fontSizeHero800,
-    fontWeight: tokens.fontWeightSemibold,
-    color: tokens.colorNeutralForeground1,
-    lineHeight: tokens.lineHeightHero800,
-  },
-
-  // ── Source card ──────────────────────────
+  // ── Source card──────────────────────────
   sourceCard: {
     display: 'flex',
     alignItems: 'center',
@@ -160,6 +154,11 @@ const useStyles = makeStyles({
   },
   disconnectBtn: {
     color: tokens.colorPaletteRedForeground1,
+  },
+  sourceActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
   },
 
   // ── Hero card ───────────────────────────
@@ -497,47 +496,37 @@ const useStyles = makeStyles({
   },
 
   // ── Slot selector ──────────────────────
-  slotSelector: {
+  slotSelectorBar: {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
-    flexWrap: 'wrap',
+    paddingBottom: tokens.spacingVerticalM,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
   },
-  slotPill: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: tokens.spacingVerticalXXS,
-    minWidth: '140px',
-    paddingTop: tokens.spacingVerticalS,
-    paddingBottom: tokens.spacingVerticalS,
-    paddingLeft: tokens.spacingHorizontalL,
-    paddingRight: tokens.spacingHorizontalL,
+  slotDropdown: {
+    minWidth: '280px',
   },
-  slotPillLabel: {
+  slotOptionContent: {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalS,
   },
-  slotStatusDot: {
+  slotOptionDot: {
     display: 'inline-block',
     width: '8px',
     height: '8px',
     borderRadius: tokens.borderRadiusCircular,
     flexShrink: 0,
   },
-  slotStatusRunning: {
-    backgroundColor: tokens.colorPaletteGreenForeground1,
+  slotOptionDotRunning: {
+    backgroundColor: tokens.colorPaletteGreenBackground3,
   },
-  slotStatusStopped: {
-    backgroundColor: tokens.colorPaletteRedForeground3,
+  slotOptionDotStopped: {
+    backgroundColor: tokens.colorPaletteRedBackground3,
   },
-  slotTrafficLabel: {
-    fontSize: tokens.fontSizeBase200,
+  slotOptionTraffic: {
     color: tokens.colorNeutralForeground3,
-  },
-  manageSlotsLink: {
-    marginLeft: 'auto',
+    fontSize: tokens.fontSizeBase200,
   },
 
   // ── Manage slots dialog ────────────────
@@ -567,40 +556,6 @@ const useStyles = makeStyles({
     flexGrow: 1,
     minWidth: '100px',
   },
-
-  // ── Swap dialog ────────────────────────
-  slotSwapDialogSurface: {
-    maxWidth: '500px',
-  },
-  swapDialogContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalM,
-  },
-  swapSlotRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: tokens.spacingHorizontalL,
-  },
-  swapSlotName: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: tokens.spacingVerticalXXS,
-    paddingTop: tokens.spacingVerticalM,
-    paddingBottom: tokens.spacingVerticalM,
-    paddingLeft: tokens.spacingHorizontalL,
-    paddingRight: tokens.spacingHorizontalL,
-    backgroundColor: tokens.colorNeutralBackground3,
-    borderRadius: tokens.borderRadiusMedium,
-    minWidth: '120px',
-  },
-  swapPreviewRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-  },
 });
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -617,7 +572,6 @@ export const BoldDeployments = () => {
   const [showCredentials, setShowCredentials] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState('production');
   const [slotSwapDialogOpen, setSlotSwapDialogOpen] = useState(false);
-  const [swapWithPreview, setSwapWithPreview] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [manageSlotsDialogOpen, setManageSlotsDialogOpen] = useState(false);
   const currentSlotUrl = deploymentSlots.find(s => s.name === selectedSlot)?.url ?? '';
@@ -695,30 +649,33 @@ export const BoldDeployments = () => {
   return (
     <div className={styles.root}>
       {/* ── Slot selector ──────────────────────────────────── */}
-      <div className={styles.slotSelector}>
-        {deploymentSlots.map((slot) => (
-          <Button
-            key={slot.name}
-            appearance={selectedSlot === slot.name ? 'primary' : 'outline'}
-            shape="circular"
-            className={styles.slotPill}
-            onClick={() => setSelectedSlot(slot.name)}
-          >
-            <div className={styles.slotPillLabel}>
-              <span
-                className={mergeClasses(
-                  styles.slotStatusDot,
-                  slot.status === 'Running' ? styles.slotStatusRunning : styles.slotStatusStopped,
+      <div className={styles.slotSelectorBar}>
+        <Dropdown
+          className={styles.slotDropdown}
+          value={`${selectedSlot} — ${traffic[selectedSlot]}% traffic`}
+          selectedOptions={[selectedSlot]}
+          onOptionSelect={(_, data) => {
+            if (data.optionValue) setSelectedSlot(data.optionValue);
+          }}
+        >
+          {deploymentSlots.map((slot) => (
+            <Option key={slot.name} value={slot.name} text={slot.name}>
+              <div className={styles.slotOptionContent}>
+                <span
+                  className={mergeClasses(
+                    styles.slotOptionDot,
+                    slot.status === 'Running' ? styles.slotOptionDotRunning : styles.slotOptionDotStopped,
+                  )}
+                />
+                <Text weight="semibold">{slot.name}</Text>
+                {slot.isProduction && (
+                  <Badge size="small" color="brand" appearance="tint">prod</Badge>
                 )}
-              />
-              <Text weight="semibold">{slot.name}</Text>
-              {slot.isProduction && (
-                <Badge size="small" color="brand" appearance="tint">prod</Badge>
-              )}
-            </div>
-            <Text className={styles.slotTrafficLabel}>{traffic[slot.name]}% traffic</Text>
-          </Button>
-        ))}
+                <Text className={styles.slotOptionTraffic}>— {traffic[slot.name]}% traffic</Text>
+              </div>
+            </Option>
+          ))}
+        </Dropdown>
 
         <Button
           appearance="subtle"
@@ -731,58 +688,22 @@ export const BoldDeployments = () => {
         <Button
           appearance="subtle"
           icon={<LayerDiagonal24Regular />}
-          className={styles.manageSlotsLink}
           onClick={() => setManageSlotsDialogOpen(true)}
         >
           Manage slots
         </Button>
+
+        <Button appearance="subtle" icon={<DocumentText24Regular />}>
+          Activity log
+        </Button>
       </div>
 
       {/* ── Swap dialog ───────────────────────────────────── */}
-      <Dialog open={slotSwapDialogOpen} onOpenChange={(_, data) => setSlotSwapDialogOpen(data.open)}>
-        <DialogSurface className={styles.slotSwapDialogSurface}>
-          <DialogBody>
-            <DialogTitle>Swap deployment slots</DialogTitle>
-            <DialogContent className={styles.swapDialogContent}>
-              <MessageBar intent="info">
-                <MessageBarBody>
-                  Swapping exchanges both slots simultaneously — staging content moves to production, and production content moves to staging. This preserves your previous production deployment for instant rollback.
-                </MessageBarBody>
-              </MessageBar>
-              <div className={styles.swapSlotRow}>
-                <div className={styles.swapSlotName}>
-                  <Subtitle2>production</Subtitle2>
-                  <Caption1>{traffic['production']}% traffic</Caption1>
-                </div>
-                <ArrowSwap24Regular />
-                <div className={styles.swapSlotName}>
-                  <Subtitle2>staging</Subtitle2>
-                  <Caption1>{traffic['staging']}% traffic</Caption1>
-                </div>
-              </div>
-              <div className={styles.swapPreviewRow}>
-                <Checkbox
-                  checked={swapWithPreview}
-                  onChange={(_, data) => setSwapWithPreview(!!data.checked)}
-                  label="Swap with preview"
-                />
-                <Tooltip
-                  content="First applies the target slot's settings to the source so you can verify the app works with production configuration, then completes the swap after your approval."
-                  relationship="description"
-                >
-                  <Info16Regular />
-                </Tooltip>
-              </div>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setSlotSwapDialogOpen(false)}>Cancel</Button>
-              <Button appearance="primary" onClick={() => setSlotSwapDialogOpen(false)}>
-                {swapWithPreview ? 'Start preview' : 'Confirm swap'}
-              </Button>
-            </DialogActions>
-          </DialogBody>
-        </DialogSurface>
-      </Dialog>
+      <SwapDialog
+        open={slotSwapDialogOpen}
+        onOpenChange={setSlotSwapDialogOpen}
+        slots={deploymentSlots}
+      />
 
       {/* ── Manage slots dialog ───────────────────────────── */}
       <Dialog open={manageSlotsDialogOpen} onOpenChange={(_, data) => setManageSlotsDialogOpen(data.open)}>
@@ -829,12 +750,7 @@ export const BoldDeployments = () => {
         </DialogSurface>
       </Dialog>
 
-      {/* ── Header ─────────────────────────────────────────── */}
-      <Text className={styles.pageTitle} block>
-        Deployments
-      </Text>
-
-      {/* ── Source card ─────────────────────────────────────── */}
+      {/* ── Source card─────────────────────────────────────── */}
       <div className={styles.sourceCard}>
         <div className={styles.sourceLeft}>
           <div className={styles.sourceIcon}>
@@ -845,21 +761,34 @@ export const BoldDeployments = () => {
               {deploymentSource.githubOrg}/{deploymentSource.githubRepo}
             </Text>
             <div className={styles.sourceMeta}>
-              <span>{deploymentSource.githubBranch}</span>
+              <Link href={deploymentSource.repoUrl} target="_blank" appearance="subtle">
+                {deploymentSource.githubBranch}
+              </Link>
               <span className={styles.dot} />
               <span>GitHub Actions</span>
+              <span className={styles.dot} />
+              <span>{webApp.runtimeStack}</span>
             </div>
+            <Link href={currentSlotUrl} target="_blank" appearance="subtle" style={{ fontSize: tokens.fontSizeBase200 }}>
+              {currentSlotUrl}
+            </Link>
           </div>
         </div>
-        <Tooltip content="Disconnect deployment source" relationship="description">
-          <Button
-            appearance="subtle"
-            className={styles.disconnectBtn}
-            onClick={handleDisconnect}
-          >
-            Disconnect
+        <div className={styles.sourceActions}>
+          <Button appearance="primary" icon={<Rocket24Regular />} size="small">
+            Deploy
           </Button>
-        </Tooltip>
+          <Tooltip content="Disconnect deployment source" relationship="description">
+            <Button
+              appearance="subtle"
+              className={styles.disconnectBtn}
+              onClick={handleDisconnect}
+              size="small"
+            >
+              Disconnect
+            </Button>
+          </Tooltip>
+        </div>
       </div>
 
       {/* ── Latest deployment hero ─────────────────────────── */}
@@ -876,32 +805,38 @@ export const BoldDeployments = () => {
           <div className={styles.heroTop}>
             <div className={styles.heroBody}>
               <Text className={styles.heroLabel}>Latest Deployment</Text>
-              <Text className={styles.heroMessage}>
-                {latestDeployment.commitMessage ?? latestDeployment.message}
-              </Text>
+              <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS }}>
+                {latestDeployment.commitId && (
+                  <Tooltip content={`Commit ${latestDeployment.commitId}`} relationship="description">
+                    <span className={styles.commitHash}>
+                      {latestDeployment.commitId.slice(0, 7)}
+                    </span>
+                  </Tooltip>
+                )}
+                <Link
+                  href={latestDeployment.commitId
+                    ? `https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${latestDeployment.commitId}`
+                    : undefined}
+                  target="_blank"
+                  appearance="subtle"
+                  className={styles.heroMessage}
+                >
+                  {latestDeployment.commitMessage ?? latestDeployment.message}
+                </Link>
+              </div>
               <div className={styles.heroMeta}>
                 <span>{latestDeployment.author}</span>
                 <span className={styles.dot} />
                 <StatusBadge status={latestDeployment.status} />
                 <span className={styles.dot} />
                 <Tooltip content={latestDeployment.timestamp} relationship="description">
-                  <span>{formatRelativeTime(latestDeployment.timestamp)}</span>
+                  <span>Deployed {formatRelativeTime(latestDeployment.timestamp)}</span>
                 </Tooltip>
                 {latestDeployment.durationSeconds != null && (
                   <>
                     <span className={styles.dot} />
-                    <span>{formatDuration(latestDeployment.durationSeconds)}</span>
+                    <span>took {formatDuration(latestDeployment.durationSeconds)}</span>
                   </>
-                )}
-                {latestDeployment.commitId && (
-                  <Tooltip
-                    content={`Commit ${latestDeployment.commitId}`}
-                    relationship="description"
-                  >
-                    <span className={styles.commitHash}>
-                      {latestDeployment.commitId.slice(0, 7)}
-                    </span>
-                  </Tooltip>
                 )}
                 {latestDeployment.branch && (
                   <span className={styles.branchChip}>
@@ -946,34 +881,7 @@ export const BoldDeployments = () => {
         </div>
       )}
 
-      {/* ── Quick actions ──────────────────────────────────── */}
-      <div className={styles.actionsRow}>
-        <Button appearance="primary" icon={<Rocket24Regular />}>
-          Trigger deploy
-        </Button>
-        <Button appearance="outline" icon={<Open24Regular />}>
-          View on GitHub
-        </Button>
-        <Button
-          appearance="outline"
-          icon={<Open24Regular />}
-          onClick={() => window.open(currentSlotUrl, '_blank', 'noopener,noreferrer')}
-        >
-          View site
-        </Button>
-        <Button
-          appearance="subtle"
-          icon={<Settings24Regular />}
-          onClick={() => {
-            setShowSetup(true);
-            setSelectedSource(null);
-          }}
-        >
-          Change source
-        </Button>
-      </div>
-
-      {/* ── Site preview ───────────────────────────────────── */}
+      {/* ── Site preview───────────────────────────────────── */}
       <div className={styles.previewPanel}>
         <div className={styles.previewHeader}>
           <Button
@@ -1041,12 +949,12 @@ export const BoldDeployments = () => {
                     <span>{entry.author}</span>
                     <span className={styles.dot} />
                     <Tooltip content={entry.timestamp} relationship="description">
-                      <span>{formatRelativeTime(entry.timestamp)}</span>
+                      <span>Deployed {formatRelativeTime(entry.timestamp)}</span>
                     </Tooltip>
                     {entry.durationSeconds != null && (
                       <>
                         <span className={styles.dot} />
-                        <span>{formatDuration(entry.durationSeconds)}</span>
+                        <span>took {formatDuration(entry.durationSeconds)}</span>
                       </>
                     )}
                     {entry.commitId && (

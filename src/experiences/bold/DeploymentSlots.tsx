@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, Fragment } from 'react';
+import { useState, useCallback, Fragment } from 'react';
 import {
   makeStyles,
   tokens,
@@ -15,19 +15,8 @@ import {
   Divider,
   ProgressBar,
   SpinButton,
-  Dialog,
-  DialogSurface,
-  DialogBody,
-  DialogTitle,
-  DialogActions,
-  DialogContent,
-  MessageBar,
-  MessageBarBody,
-  Checkbox,
-  Tooltip,
 } from '@fluentui/react-components';
 import {
-  Info16Regular,
   ArrowSwap24Regular,
   Add24Regular,
   Open24Regular,
@@ -36,6 +25,8 @@ import {
 import { deploymentSlots } from '../../mock-data';
 import type { DeploymentSlot } from '../../types';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+
+import { SwapDialog } from '../../components/shared/SwapDialog';
 
 const formatRelativeTime = (timestamp: string): string => {
   const now = Date.now();
@@ -198,63 +189,6 @@ const useStyles = makeStyles({
     borderRadius: tokens.borderRadiusCircular,
   },
 
-  // Swap dialog
-  swapDialogSurface: {
-    maxWidth: '700px',
-  },
-  dialogContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalL,
-  },
-  comparisonGrid: {
-    display: 'grid',
-    gridTemplateColumns: '140px 1fr 1fr',
-    borderRadius: tokens.borderRadiusMedium,
-    overflow: 'hidden',
-    border: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
-  },
-  comparisonHeaderCell: {
-    backgroundColor: tokens.colorNeutralBackground3,
-    paddingTop: tokens.spacingVerticalS,
-    paddingBottom: tokens.spacingVerticalS,
-    paddingLeft: tokens.spacingHorizontalM,
-    paddingRight: tokens.spacingHorizontalM,
-    fontWeight: tokens.fontWeightSemibold,
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground2,
-    textTransform: 'uppercase',
-  },
-  comparisonCell: {
-    paddingTop: tokens.spacingVerticalS,
-    paddingBottom: tokens.spacingVerticalS,
-    paddingLeft: tokens.spacingHorizontalM,
-    paddingRight: tokens.spacingHorizontalM,
-    borderTopWidth: tokens.strokeWidthThin,
-    borderTopStyle: 'solid',
-    borderTopColor: tokens.colorNeutralStroke2,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  comparisonCellDiff: {
-    backgroundColor: tokens.colorStatusWarningBackground1,
-  },
-  settingNameCell: {
-    fontWeight: tokens.fontWeightSemibold,
-    fontSize: tokens.fontSizeBase300,
-  },
-  settingValueCell: {
-    fontFamily: tokens.fontFamilyMonospace,
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground2,
-  },
-  swapPreviewRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-  },
-
   // Traffic routing section
   trafficCard: {
     paddingTop: tokens.spacingVerticalXXL,
@@ -300,7 +234,6 @@ const useStyles = makeStyles({
 export const BoldDeploymentSlots = () => {
   const styles = useStyles();
   const [swapDialogOpen, setSwapDialogOpen] = useState(false);
-  const [swapWithPreview, setSwapWithPreview] = useState(false);
   const [traffic, setTraffic] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
     for (const slot of deploymentSlots) {
@@ -315,27 +248,6 @@ export const BoldDeploymentSlots = () => {
         (a, b) => (b.isProduction ? 1 : 0) - (a.isProduction ? 1 : 0),
       ),
     [],
-  );
-
-  const settingsComparison = useMemo(() => {
-    if (slots.length < 2) return [];
-    const [source, target] = slots;
-    return source.appSettings.map((sourceSetting) => {
-      const targetSetting = target.appSettings.find(
-        (s) => s.name === sourceSetting.name,
-      );
-      return {
-        name: sourceSetting.name,
-        sourceValue: sourceSetting.value,
-        targetValue: targetSetting?.value ?? '—',
-        isDifferent: sourceSetting.value !== targetSetting?.value,
-      };
-    });
-  }, [slots]);
-
-  const diffCount = useMemo(
-    () => settingsComparison.filter((s) => s.isDifferent).length,
-    [settingsComparison],
   );
 
   const handleTrafficChange = useCallback(
@@ -469,94 +381,11 @@ export const BoldDeploymentSlots = () => {
       </div>
 
       {/* Swap comparison dialog */}
-      <Dialog
+      <SwapDialog
         open={swapDialogOpen}
-        onOpenChange={(_, data) => setSwapDialogOpen(data.open)}
-      >
-        <DialogSurface className={styles.swapDialogSurface}>
-          <DialogBody>
-            <DialogTitle>Swap deployment slots</DialogTitle>
-            <DialogContent className={styles.dialogContent}>
-              <MessageBar intent="info">
-                <MessageBarBody>
-                  Swapping exchanges both slots simultaneously — staging content moves to production, and production content moves to staging. This preserves your previous production deployment for instant rollback.
-                </MessageBarBody>
-              </MessageBar>
-              <Caption1 className={styles.subtitle}>
-                Review configuration differences between {slots[0]?.name} and{' '}
-                {slots[1]?.name} before swapping.
-                {diffCount > 0 && ` ${diffCount} settings differ between slots.`}
-              </Caption1>
-
-              <div className={styles.comparisonGrid}>
-                {/* Grid header */}
-                <Text className={styles.comparisonHeaderCell}>Setting</Text>
-                <Text className={styles.comparisonHeaderCell}>
-                  {slots[0]?.name}
-                </Text>
-                <Text className={styles.comparisonHeaderCell}>
-                  {slots[1]?.name}
-                </Text>
-
-                {/* Comparison rows */}
-                {settingsComparison.map((setting) => (
-                  <Fragment key={setting.name}>
-                    <Text
-                      className={mergeClasses(
-                        styles.comparisonCell,
-                        styles.settingNameCell,
-                        setting.isDifferent && styles.comparisonCellDiff,
-                      )}
-                    >
-                      {setting.name}
-                    </Text>
-                    <Text
-                      className={mergeClasses(
-                        styles.comparisonCell,
-                        styles.settingValueCell,
-                        setting.isDifferent && styles.comparisonCellDiff,
-                      )}
-                    >
-                      {setting.sourceValue}
-                    </Text>
-                    <Text
-                      className={mergeClasses(
-                        styles.comparisonCell,
-                        styles.settingValueCell,
-                        setting.isDifferent && styles.comparisonCellDiff,
-                      )}
-                    >
-                      {setting.targetValue}
-                    </Text>
-                  </Fragment>
-                ))}
-              </div>
-              <div className={styles.swapPreviewRow}>
-                <Checkbox
-                  checked={swapWithPreview}
-                  onChange={(_, data) => setSwapWithPreview(!!data.checked)}
-                  label="Swap with preview"
-                />
-                <Tooltip
-                  content="First applies the target slot's settings to the source so you can verify the app works with production configuration, then completes the swap after your approval."
-                  relationship="description"
-                >
-                  <Info16Regular />
-                </Tooltip>
-              </div>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setSwapDialogOpen(false)}>Cancel</Button>
-              <Button
-                appearance="primary"
-                onClick={() => setSwapDialogOpen(false)}
-              >
-                {swapWithPreview ? 'Start preview' : 'Confirm swap'}
-              </Button>
-            </DialogActions>
-          </DialogBody>
-        </DialogSurface>
-      </Dialog>
+        onOpenChange={setSwapDialogOpen}
+        slots={deploymentSlots}
+      />
 
       {/* Traffic routing */}
       <Card className={styles.trafficCard}>
