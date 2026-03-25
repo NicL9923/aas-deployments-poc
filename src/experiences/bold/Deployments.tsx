@@ -781,9 +781,13 @@ export const BoldDeployments = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS }}>
                 {latestDeployment.commitId && (
                   <Tooltip content={`Commit ${latestDeployment.commitId}`} relationship="description">
-                    <span className={styles.commitHash}>
+                    <Link
+                      href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${latestDeployment.commitId}`}
+                      target="_blank"
+                      className={styles.commitHash}
+                    >
                       {latestDeployment.commitId.slice(0, 7)}
-                    </span>
+                    </Link>
                   </Tooltip>
                 )}
                 <Link
@@ -812,10 +816,14 @@ export const BoldDeployments = () => {
                   </>
                 )}
                 {latestDeployment.branch && (
-                  <span className={styles.branchChip}>
+                  <Link
+                    href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/tree/${latestDeployment.branch}`}
+                    target="_blank"
+                    className={styles.branchChip}
+                  >
                     <span className={styles.branchIcon}><BranchFork24Regular /></span>
                     {latestDeployment.branch}
-                  </span>
+                  </Link>
                 )}
               </div>
               {latestDeployment.phases && (
@@ -905,16 +913,24 @@ export const BoldDeployments = () => {
                     )}
                     {entry.commitId && (
                       <Tooltip content={`Commit ${entry.commitId}`} relationship="description">
-                        <span className={styles.commitHash}>
+                        <Link
+                          href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${entry.commitId}`}
+                          target="_blank"
+                          className={styles.commitHash}
+                        >
                           {entry.commitId.slice(0, 7)}
-                        </span>
+                        </Link>
                       </Tooltip>
                     )}
                     {entry.branch && (
-                      <span className={styles.branchChip}>
+                      <Link
+                        href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/tree/${entry.branch}`}
+                        target="_blank"
+                        className={styles.branchChip}
+                      >
                         <span className={styles.branchIcon}><BranchFork24Regular /></span>
                         {entry.branch}
-                      </span>
+                      </Link>
                     )}
                   </div>
                   {entry.phases && (

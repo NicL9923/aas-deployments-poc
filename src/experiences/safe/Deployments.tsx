@@ -656,9 +656,6 @@ export const SafeDeployments = () => {
         <Button appearance="subtle" icon={<ArrowSyncRegular />}>
           Refresh
         </Button>
-        <Button appearance="subtle" icon={<DeleteRegular />}>
-          Clear
-        </Button>
         <div className={styles.toolbarSpacer} />
         <Dropdown
           className={styles.filterDropdown}
