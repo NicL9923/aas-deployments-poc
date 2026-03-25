@@ -539,6 +539,8 @@ export const BoldDeployments = () => {
 
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [showSetup, setShowSetup] = useState(false);
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [isDisconnected, setIsDisconnected] = useState(false);
   const [selectedSource, setSelectedSource] = useState<DeploymentSourceType | null>(null);
   const [selectedOrg, setSelectedOrg] = useState('');
   const [selectedRepo, setSelectedRepo] = useState('');
@@ -589,8 +591,12 @@ export const BoldDeployments = () => {
     avatarClasses[name.charCodeAt(0) % avatarClasses.length];
 
   const handleDisconnect = () => {
-    setShowSetup(true);
-    setSelectedSource(null);
+    setDisconnectDialogOpen(true);
+  };
+
+  const confirmDisconnect = () => {
+    setDisconnectDialogOpen(false);
+    setIsDisconnected(true);
   };
 
   const handleSourceSelect = (type: DeploymentSourceType) => {
@@ -723,7 +729,44 @@ export const BoldDeployments = () => {
         </DialogSurface>
       </Dialog>
 
-      {/* ── Source card─────────────────────────────────────── */}
+      {/* ── Disconnect confirmation dialog ─────────────────── */}
+      <Dialog open={disconnectDialogOpen} onOpenChange={(_, data) => setDisconnectDialogOpen(data.open)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Disconnect deployment source?</DialogTitle>
+            <DialogContent>
+              <Text>
+                This will disconnect <Text weight="semibold">{deploymentSource.githubOrg}/{deploymentSource.githubRepo}</Text> from
+                this app. Existing deployments will not be affected, but new pushes will no longer trigger deployments.
+              </Text>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDisconnectDialogOpen(false)}>Cancel</Button>
+              <Button appearance="primary" className={styles.disconnectBtn} onClick={confirmDisconnect}>
+                Disconnect
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      {/* ── Source card / disconnected state ────────────────── */}
+      {isDisconnected ? (
+        <div className={styles.sourceCard} style={{ justifyContent: 'center' }}>
+          <Button
+            appearance="primary"
+            icon={<Settings24Regular />}
+            size="large"
+            onClick={() => {
+              setShowSetup(true);
+              setSelectedSource(null);
+              setIsDisconnected(false);
+            }}
+          >
+            Choose deployment source
+          </Button>
+        </div>
+      ) : (
       <div className={styles.sourceCard}>
         <div className={styles.sourceLeft}>
           <div className={styles.sourceIcon}>
@@ -763,6 +806,7 @@ export const BoldDeployments = () => {
           </Tooltip>
         </div>
       </div>
+      )}
 
       {/* ── Latest deployment hero ─────────────────────────── */}
       {latestDeployment && (
