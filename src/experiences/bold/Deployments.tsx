@@ -271,32 +271,6 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalM,
     flexWrap: 'wrap',
   },
-  previewPanel: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: tokens.spacingVerticalS,
-    backgroundColor: tokens.colorNeutralBackground1,
-    borderRadius: tokens.borderRadiusXLarge,
-    boxShadow: tokens.shadow4,
-    overflow: 'hidden',
-  },
-  previewHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalL}`,
-  },
-  previewIframe: {
-    width: '100%',
-    height: '400px',
-    border: 'none',
-  },
-  previewCaption: {
-    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalL}`,
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground3,
-  },
-
   // ── Timeline ────────────────────────────
   sectionHeader: {
     display: 'flex',
@@ -572,7 +546,6 @@ export const BoldDeployments = () => {
   const [showCredentials, setShowCredentials] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState('production');
   const [slotSwapDialogOpen, setSlotSwapDialogOpen] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [manageSlotsDialogOpen, setManageSlotsDialogOpen] = useState(false);
   const currentSlotUrl = deploymentSlots.find(s => s.name === selectedSlot)?.url ?? '';
   const [traffic, setTraffic] = useState<Record<string, number>>(() => {
@@ -880,33 +853,6 @@ export const BoldDeployments = () => {
           )}
         </div>
       )}
-
-      {/* ── Site preview───────────────────────────────────── */}
-      <div className={styles.previewPanel}>
-        <div className={styles.previewHeader}>
-          <Button
-            appearance="subtle"
-            icon={showPreview ? <EyeOff24Regular /> : <Eye24Regular />}
-            onClick={() => setShowPreview(prev => !prev)}
-          >
-            {showPreview ? 'Hide preview' : 'Preview site'}
-          </Button>
-        </div>
-        {showPreview && (
-          <>
-            <iframe
-              src={currentSlotUrl}
-              sandbox="allow-scripts allow-same-origin"
-              className={styles.previewIframe}
-              style={{ borderRadius: tokens.borderRadiusLarge }}
-              title="Site preview"
-            />
-            <Caption1 className={styles.previewCaption}>
-              Preview may not work for API-only applications or sites with X-Frame-Options restrictions.
-            </Caption1>
-          </>
-        )}
-      </div>
 
       <Divider />
 

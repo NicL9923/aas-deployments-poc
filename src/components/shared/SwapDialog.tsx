@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableHeaderCell,
   TableRow,
+  Caption1,
   Text,
   makeStyles,
   tokens,
@@ -60,6 +61,10 @@ const useStyles = makeStyles({
   },
   section: {
     marginBottom: tokens.spacingVerticalM,
+  },
+  swapPreviewCaption: {
+    paddingLeft: '28px',
+    color: tokens.colorNeutralForeground3,
   },
   configHeading: {
     fontWeight: tokens.fontWeightSemibold,
@@ -289,6 +294,9 @@ export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
                 onChange={(_, data) => setSwapWithPreview(!!data.checked)}
                 disabled
               />
+              <Caption1 className={styles.swapPreviewCaption}>
+                Applies target slot settings to source first, letting you validate under production config before completing the swap.
+              </Caption1>
             </div>
 
             {/* Config changes section */}

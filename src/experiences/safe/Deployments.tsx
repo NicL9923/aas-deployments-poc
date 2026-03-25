@@ -23,6 +23,8 @@ import {
   Divider,
   Label,
   Badge,
+  Tab,
+  TabList,
   ProgressBar,
   SpinButton,
   Subtitle2,
@@ -48,7 +50,6 @@ import {
   LayerDiagonalRegular,
   PlugDisconnectedRegular,
   BranchFork16Regular,
-  Open24Regular,
   DocumentText24Regular,
 } from '@fluentui/react-icons';
 import type { DeploymentSourceType, DeploymentStatus } from '../../types';
@@ -348,6 +349,7 @@ export const SafeDeployments = () => {
 
   // -- Slot selector ----------------------------------------------------------
   const [selectedSlot, setSelectedSlot] = useState('production');
+  const [selectedTab, setSelectedTab] = useState<'settings' | 'history'>('settings');
   const [slotSwapDialogOpen, setSlotSwapDialogOpen] = useState(false);
   const currentSlotUrl = deploymentSlots.find(s => s.name === selectedSlot)?.url ?? '';
   const [manageSlotsDialogOpen, setManageSlotsDialogOpen] = useState(false);
@@ -963,14 +965,6 @@ export const SafeDeployments = () => {
           Manage slots
         </Button>
 
-        <Button
-          appearance="subtle"
-          icon={<Open24Regular />}
-          onClick={() => window.open(currentSlotUrl, '_blank', 'noopener,noreferrer')}
-        >
-          Browse
-        </Button>
-
         <Button appearance="subtle" icon={<DocumentText24Regular />}>
           Activity log
         </Button>
@@ -1028,26 +1022,39 @@ export const SafeDeployments = () => {
         </DialogSurface>
       </Dialog>
 
-      {/* ── Source configuration ──────────────────────── */}
-      {renderSettingsTab()}
-
-      <Divider />
-
-      {/* ── Deployment history ─────────────────────────── */}
-      <Text weight="semibold" size={400}>Deployment history</Text>
-      {renderDeploymentHistory()}
-
-      <Divider />
-
-      {/* ── Advanced: Legacy credentials (collapsible) ── */}
-      <Button
-        appearance="subtle"
-        icon={showAdvanced ? <ChevronDownRegular /> : <ChevronRightRegular />}
-        onClick={() => setShowAdvanced((prev) => !prev)}
+      {/* ── Tabs ──────────────────────────────────────── */}
+      <TabList
+        selectedValue={selectedTab}
+        onTabSelect={(_, data) => setSelectedTab(data.value as 'settings' | 'history')}
       >
-        Advanced: Legacy credentials
-      </Button>
-      {showAdvanced && renderFtpsTab()}
+        <Tab value="settings">Settings</Tab>
+        <Tab value="history">History</Tab>
+      </TabList>
+
+      {selectedTab === 'settings' && (
+        <>
+          {/* ── Source configuration ──────────────────────── */}
+          {renderSettingsTab()}
+
+          {/* ── Advanced: Legacy credentials (collapsible) ── */}
+          <Divider />
+          <Button
+            appearance="subtle"
+            icon={showAdvanced ? <ChevronDownRegular /> : <ChevronRightRegular />}
+            onClick={() => setShowAdvanced((prev) => !prev)}
+          >
+            Advanced: Legacy credentials
+          </Button>
+          {showAdvanced && renderFtpsTab()}
+        </>
+      )}
+
+      {selectedTab === 'history' && (
+        <>
+          <Text weight="semibold" size={400}>Deployment history</Text>
+          {renderDeploymentHistory()}
+        </>
+      )}
     </div>
   );
 };
