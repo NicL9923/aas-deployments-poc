@@ -993,6 +993,11 @@ https://<app>.scm.azurewebsites.net/api/logstream
     - This is intentional — it preserves the previous production payload in the staging slot for instant rollback — but it surprises most users who expect promotion semantics.
     - **Recommendation:** Add a brief inline explanation in the swap confirmation dialog: *"Swap exchanges both slots: staging → production and production → staging. This preserves your previous production deployment in the staging slot for instant rollback."* Consider a small diagram showing the bidirectional exchange.
 
+13. **"Swap with preview" has no inline explanation:**
+    - The "Swap with preview" option exists as an alternative to a direct swap, but the UI provides zero context about what it actually does or how it differs from a standard swap.
+    - Users must already know that "Swap with preview" performs a two-phase swap: first applying the target slot's configuration to the source slot (so you can validate the app works with production settings), then completing the actual content exchange only after manual approval.
+    - **Recommendation:** Add an inline info callout or tooltip next to "Swap with preview" explaining the two-phase process: *"Swap with preview first applies the target slot's settings to the source, letting you verify the app works with production configuration before completing the swap."* Include a "Learn more" link to the docs.
+
 ### 11.5 Summary of Top Recommendations
 
 | Priority | Issue | Recommendation |
@@ -1003,6 +1008,7 @@ https://<app>.scm.azurewebsites.net/api/logstream
 | **P1** | No staging slot guidance during setup | Nudge + "Create staging slot" CTA on prod slot CI/CD setup |
 | **P1** | Unclear when deployment is live | Show deployment lifecycle phases + instance rollout status |
 | **P1** | Swap semantics not explained | Inline explanation in swap confirmation dialog |
+| **P1** | "Swap with preview" unexplained | Inline info callout explaining two-phase swap process |
 | **P2** | Save button hidden, no dirty state | Sticky footer save bar with visible state change |
 | **P2** | "Use available workflow" unclear | Reword with inline path display |
 | **P2** | Deletable deployment logs | Remove or gate behind elevated permissions |

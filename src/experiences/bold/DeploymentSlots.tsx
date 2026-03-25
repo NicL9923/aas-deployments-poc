@@ -21,8 +21,13 @@ import {
   DialogTitle,
   DialogActions,
   DialogContent,
+  MessageBar,
+  MessageBarBody,
+  Checkbox,
+  Tooltip,
 } from '@fluentui/react-components';
 import {
+  Info16Regular,
   ArrowSwap24Regular,
   Add24Regular,
   Open24Regular,
@@ -244,6 +249,11 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground2,
   },
+  swapPreviewRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
 
   // Traffic routing section
   trafficCard: {
@@ -290,6 +300,7 @@ const useStyles = makeStyles({
 export const BoldDeploymentSlots = () => {
   const styles = useStyles();
   const [swapDialogOpen, setSwapDialogOpen] = useState(false);
+  const [swapWithPreview, setSwapWithPreview] = useState(false);
   const [traffic, setTraffic] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
     for (const slot of deploymentSlots) {
@@ -466,6 +477,11 @@ export const BoldDeploymentSlots = () => {
           <DialogBody>
             <DialogTitle>Swap deployment slots</DialogTitle>
             <DialogContent className={styles.dialogContent}>
+              <MessageBar intent="info">
+                <MessageBarBody>
+                  Swapping exchanges both slots simultaneously — staging content moves to production, and production content moves to staging. This preserves your previous production deployment for instant rollback.
+                </MessageBarBody>
+              </MessageBar>
               <Caption1 className={styles.subtitle}>
                 Review configuration differences between {slots[0]?.name} and{' '}
                 {slots[1]?.name} before swapping.
@@ -515,6 +531,19 @@ export const BoldDeploymentSlots = () => {
                   </Fragment>
                 ))}
               </div>
+              <div className={styles.swapPreviewRow}>
+                <Checkbox
+                  checked={swapWithPreview}
+                  onChange={(_, data) => setSwapWithPreview(!!data.checked)}
+                  label="Swap with preview"
+                />
+                <Tooltip
+                  content="First applies the target slot's settings to the source so you can verify the app works with production configuration, then completes the swap after your approval."
+                  relationship="description"
+                >
+                  <Info16Regular />
+                </Tooltip>
+              </div>
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setSwapDialogOpen(false)}>Cancel</Button>
@@ -522,7 +551,7 @@ export const BoldDeploymentSlots = () => {
                 appearance="primary"
                 onClick={() => setSwapDialogOpen(false)}
               >
-                Confirm swap
+                {swapWithPreview ? 'Start preview' : 'Confirm swap'}
               </Button>
             </DialogActions>
           </DialogBody>

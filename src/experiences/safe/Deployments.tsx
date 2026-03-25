@@ -3,8 +3,6 @@ import {
   makeStyles,
   tokens,
   mergeClasses,
-  TabList,
-  Tab,
   Dropdown,
   Option,
   OptionGroup,
@@ -35,8 +33,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Checkbox,
 } from '@fluentui/react-components';
 import {
+  Info16Regular,
   ArrowSyncRegular,
   ArrowSwapRegular,
   DeleteRegular,
@@ -48,17 +48,22 @@ import {
   EditRegular,
   LayerDiagonalRegular,
   PlugDisconnectedRegular,
+  BranchFork16Regular,
+  Open24Regular,
 } from '@fluentui/react-icons';
 import type { DeploymentSourceType, DeploymentStatus } from '../../types';
 import {
   deploymentSource,
-  deploymentHistory,
+  allDeployments,
   deploymentSlots,
   availableOrgs,
   availableRepos,
   availableBranches,
 } from '../../mock-data';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { StreamingLogViewer } from '../../components/shared/StreamingLogViewer';
+import { DeploymentPhasePills } from '../../components/shared/DeploymentPhasePills';
+import { formatRelativeTime, formatDuration } from '../../utils';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -93,25 +98,6 @@ const statusFilterOptions: (DeploymentStatus | 'All')[] = [
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const formatRelativeTime = (timestamp: string): string => {
-  const diffMs = Date.now() - new Date(timestamp).getTime();
-  const minutes = Math.floor(diffMs / 60_000);
-  const hours = Math.floor(diffMs / 3_600_000);
-  const days = Math.floor(diffMs / 86_400_000);
-
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return `${days}d ago`;
-};
-
-const formatDuration = (seconds?: number): string => {
-  if (seconds == null) return '\u2014'; // em-dash
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
-};
 
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text);
@@ -202,6 +188,7 @@ const useStyles = makeStyles({
   colTime: { width: '100px' },
   colDuration: { width: '90px' },
   colActions: { width: '56px' },
+  colBranch: { width: '110px' },
   tableRow: {
     cursor: 'pointer',
     ':hover': {
@@ -220,25 +207,17 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
   },
+  branchChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXXS,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
   expandedContent: {
     paddingLeft: tokens.spacingHorizontalXL,
     paddingRight: tokens.spacingHorizontalM,
     paddingBottom: tokens.spacingVerticalM,
-  },
-  codeBlock: {
-    backgroundColor: tokens.colorNeutralBackgroundInverted,
-    color: tokens.colorNeutralForegroundInverted,
-    fontFamily: tokens.fontFamilyMonospace,
-    fontSize: tokens.fontSizeBase200,
-    lineHeight: tokens.lineHeightBase300,
-    paddingTop: tokens.spacingVerticalM,
-    paddingBottom: tokens.spacingVerticalM,
-    paddingLeft: tokens.spacingHorizontalM,
-    paddingRight: tokens.spacingHorizontalM,
-    borderRadius: tokens.borderRadiusMedium,
-    overflowX: 'auto' as const,
-    whiteSpace: 'pre' as const,
-    marginTop: tokens.spacingVerticalXS,
   },
   emptyState: {
     display: 'flex',
@@ -363,19 +342,19 @@ const useStyles = makeStyles({
     borderRadius: tokens.borderRadiusMedium,
     minWidth: '120px',
   },
+  swapPreviewRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
 });
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-type TabValue = 'settings' | 'logs' | 'ftps';
-
-export const SafeDeploymentCenter = () => {
+export const SafeDeployments = () => {
   const styles = useStyles();
-
-  // -- Tab ------------------------------------------------------------------
-  const [selectedTab, setSelectedTab] = useState<TabValue>('settings');
 
   // -- Settings -------------------------------------------------------------
   const [isEditing, setIsEditing] = useState(false);
@@ -394,13 +373,16 @@ export const SafeDeploymentCenter = () => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<DeploymentStatus | 'All'>('All');
 
-  // -- FTPS -----------------------------------------------------------------
+  // -- FTPS / Advanced -------------------------------------------------------
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showAppPassword, setShowAppPassword] = useState(false);
   const [showUserPassword, setShowUserPassword] = useState(false);
 
   // -- Slot selector ----------------------------------------------------------
   const [selectedSlot, setSelectedSlot] = useState('production');
   const [slotSwapDialogOpen, setSlotSwapDialogOpen] = useState(false);
+  const currentSlotUrl = deploymentSlots.find(s => s.name === selectedSlot)?.url ?? '';
+  const [swapWithPreview, setSwapWithPreview] = useState(false);
   const [manageSlotsDialogOpen, setManageSlotsDialogOpen] = useState(false);
   const [traffic, setTraffic] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
@@ -425,12 +407,17 @@ export const SafeDeploymentCenter = () => {
     [selectedOrg],
   );
 
+  const slotDeployments = useMemo(
+    () => allDeployments.filter(d => d.targetSlot === selectedSlot),
+    [selectedSlot],
+  );
+
   const filteredDeployments = useMemo(
     () =>
       statusFilter === 'All'
-        ? deploymentHistory
-        : deploymentHistory.filter((d) => d.status === statusFilter),
-    [statusFilter],
+        ? slotDeployments
+        : slotDeployments.filter((d) => d.status === statusFilter),
+    [slotDeployments, statusFilter],
   );
 
   const filteredOrgs = useMemo(
@@ -686,9 +673,9 @@ export const SafeDeploymentCenter = () => {
   );
 
   // =========================================================================
-  // Logs Tab
+  // Deployment History
   // =========================================================================
-  const renderLogsTab = () => (
+  const renderDeploymentHistory = () => (
     <div className={styles.tabContent}>
       <div className={styles.toolbar}>
         <Button appearance="subtle" icon={<ArrowSyncRegular />}>
@@ -727,6 +714,7 @@ export const SafeDeploymentCenter = () => {
               <TableHeaderCell className={styles.colStatus}>Status</TableHeaderCell>
               <TableHeaderCell>Deployment</TableHeaderCell>
               <TableHeaderCell className={styles.colAuthor}>Author</TableHeaderCell>
+              <TableHeaderCell className={styles.colBranch}>Branch</TableHeaderCell>
               <TableHeaderCell className={styles.colTime}>Time</TableHeaderCell>
               <TableHeaderCell className={styles.colDuration}>Duration</TableHeaderCell>
               <TableHeaderCell className={styles.colActions} />
@@ -755,6 +743,14 @@ export const SafeDeploymentCenter = () => {
                     )}
                   </TableCell>
                   <TableCell className={styles.colAuthor}>{entry.author}</TableCell>
+                  <TableCell className={styles.colBranch}>
+                    {entry.branch && (
+                      <span className={styles.branchChip}>
+                        <BranchFork16Regular />
+                        {entry.branch}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell className={styles.colTime}>
                     <Tooltip content={entry.timestamp} relationship="description">
                       <Text>{formatRelativeTime(entry.timestamp)}</Text>
@@ -781,12 +777,18 @@ export const SafeDeploymentCenter = () => {
               if (isExpanded && entry.buildLogs) {
                 rows.push(
                   <TableRow key={`${entry.id}-logs`}>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={7}>
                       <div className={styles.expandedContent}>
                         <Text weight="semibold" size={200}>
                           Build logs
                         </Text>
-                        <div className={styles.codeBlock}>{entry.buildLogs.join('\n')}</div>
+                        {entry.phases && (
+                          <DeploymentPhasePills phases={entry.phases} />
+                        )}
+                        <StreamingLogViewer
+                          logs={entry.buildLogs}
+                          isStreaming={entry.status === 'InProgress'}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>,
@@ -985,15 +987,27 @@ export const SafeDeploymentCenter = () => {
         >
           Manage slots
         </Button>
+
+        <Button
+          appearance="subtle"
+          icon={<Open24Regular />}
+          onClick={() => window.open(currentSlotUrl, '_blank', 'noopener,noreferrer')}
+        >
+          Browse
+        </Button>
       </div>
 
-      {/* ── Swap dialog ────────────────────────────────── */}
+      {/* ── Swap dialog────────────────────────────────── */}
       <Dialog open={slotSwapDialogOpen} onOpenChange={(_, data) => setSlotSwapDialogOpen(data.open)}>
         <DialogSurface className={styles.slotSwapDialogSurface}>
           <DialogBody>
             <DialogTitle>Swap deployment slots</DialogTitle>
             <DialogContent className={styles.swapDialogContent}>
-              <Text>Swapping will exchange content and configuration between slots.</Text>
+              <MessageBar intent="info">
+                <MessageBarBody>
+                  Swapping exchanges both slots simultaneously — staging content moves to production, and production content moves to staging. This preserves your previous production deployment for instant rollback.
+                </MessageBarBody>
+              </MessageBar>
               <div className={styles.swapSlotRow}>
                 <div className={styles.swapSlotName}>
                   <Subtitle2>production</Subtitle2>
@@ -1005,10 +1019,25 @@ export const SafeDeploymentCenter = () => {
                   <Caption1>{traffic['staging']}% traffic</Caption1>
                 </div>
               </div>
+              <div className={styles.swapPreviewRow}>
+                <Checkbox
+                  checked={swapWithPreview}
+                  onChange={(_, data) => setSwapWithPreview(!!data.checked)}
+                  label="Swap with preview"
+                />
+                <Tooltip
+                  content="First applies the target slot's settings to the source so you can verify the app works with production configuration, then completes the swap after your approval."
+                  relationship="description"
+                >
+                  <Info16Regular />
+                </Tooltip>
+              </div>
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setSlotSwapDialogOpen(false)}>Cancel</Button>
-              <Button appearance="primary" onClick={() => setSlotSwapDialogOpen(false)}>Confirm swap</Button>
+              <Button appearance="primary" onClick={() => setSlotSwapDialogOpen(false)}>
+                {swapWithPreview ? 'Start preview' : 'Confirm swap'}
+              </Button>
             </DialogActions>
           </DialogBody>
         </DialogSurface>
@@ -1059,18 +1088,26 @@ export const SafeDeploymentCenter = () => {
         </DialogSurface>
       </Dialog>
 
-      <TabList
-        selectedValue={selectedTab}
-        onTabSelect={(_, data) => setSelectedTab(data.value as TabValue)}
-      >
-        <Tab value="settings">Settings</Tab>
-        <Tab value="logs">Logs</Tab>
-        <Tab value="ftps">FTPS credentials</Tab>
-      </TabList>
+      {/* ── Source configuration ──────────────────────── */}
+      {renderSettingsTab()}
 
-      {selectedTab === 'settings' && renderSettingsTab()}
-      {selectedTab === 'logs' && renderLogsTab()}
-      {selectedTab === 'ftps' && renderFtpsTab()}
+      <Divider />
+
+      {/* ── Deployment history ─────────────────────────── */}
+      <Text weight="semibold" size={400}>Deployment history</Text>
+      {renderDeploymentHistory()}
+
+      <Divider />
+
+      {/* ── Advanced: Legacy credentials (collapsible) ── */}
+      <Button
+        appearance="subtle"
+        icon={showAdvanced ? <ChevronDownRegular /> : <ChevronRightRegular />}
+        onClick={() => setShowAdvanced((prev) => !prev)}
+      >
+        Advanced: Legacy credentials
+      </Button>
+      {showAdvanced && renderFtpsTab()}
     </div>
   );
 };

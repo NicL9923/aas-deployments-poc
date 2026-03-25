@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { DeploymentSourceType, DeploymentStatus } from '../../types';
 import {
   deploymentSource,
-  deploymentHistory,
+  allDeployments,
   deploymentSlots,
   availableOrgs,
   availableRepos,
   availableBranches,
 } from '../../mock-data';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { StreamingLogViewer } from '../../components/shared/StreamingLogViewer';
+import { DeploymentPhasePills } from '../../components/shared/DeploymentPhasePills';
+import { formatRelativeTime, formatDuration } from '../../utils';
 import {
   makeStyles,
   tokens,
@@ -32,8 +35,12 @@ import {
   SpinButton,
   Caption1,
   Subtitle2,
+  MessageBar,
+  MessageBarBody,
+  Checkbox,
 } from '@fluentui/react-components';
 import {
+  Info16Regular,
   BranchFork24Regular,
   Rocket24Regular,
   Open24Regular,
@@ -66,26 +73,6 @@ const sourceOptions: {
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-const formatRelativeTime = (timestamp: string): string => {
-  const ms = Date.now() - new Date(timestamp).getTime();
-  const seconds = Math.floor(Math.abs(ms) / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (seconds < 60) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 30) return `${days}d ago`;
-  return new Date(timestamp).toLocaleDateString();
-};
-
-const formatDuration = (seconds: number): string => {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
-};
 
 const getSourceIcon = (type: DeploymentSourceType): React.ReactNode => {
   const map: Record<DeploymentSourceType, React.ReactNode> = {
@@ -239,6 +226,24 @@ const useStyles = makeStyles({
     borderRadius: tokens.borderRadiusMedium,
     color: tokens.colorNeutralForeground2,
   },
+  branchChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXXS,
+    fontFamily: tokens.fontFamilyMonospace,
+    fontSize: tokens.fontSizeBase200,
+    backgroundColor: tokens.colorNeutralBackground3,
+    paddingTop: tokens.spacingVerticalXXS,
+    paddingBottom: tokens.spacingVerticalXXS,
+    paddingLeft: tokens.spacingHorizontalS,
+    paddingRight: tokens.spacingHorizontalS,
+    borderRadius: tokens.borderRadiusMedium,
+    color: tokens.colorNeutralForeground2,
+  },
+  branchIcon: {
+    fontSize: '12px',
+    display: 'flex',
+  },
   heroProgress: {
     marginTop: tokens.spacingVerticalM,
   },
@@ -260,31 +265,37 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground3,
   },
 
-  // ── Build logs ──────────────────────────
-  buildLogs: {
-    marginTop: tokens.spacingVerticalM,
-    paddingTop: tokens.spacingVerticalM,
-    paddingBottom: tokens.spacingVerticalM,
-    paddingLeft: tokens.spacingHorizontalL,
-    paddingRight: tokens.spacingHorizontalL,
-    backgroundColor: tokens.colorNeutralBackgroundInverted,
-    color: tokens.colorNeutralForegroundInverted,
-    borderRadius: tokens.borderRadiusMedium,
-    fontFamily: tokens.fontFamilyMonospace,
-    fontSize: tokens.fontSizeBase200,
-    lineHeight: tokens.lineHeightBase300,
-    overflowX: 'auto',
-    overflowY: 'auto',
-    maxHeight: '300px',
-    whiteSpace: 'pre',
-  },
-
   // ── Quick actions ───────────────────────
   actionsRow: {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
     flexWrap: 'wrap',
+  },
+  previewPanel: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: tokens.spacingVerticalS,
+    backgroundColor: tokens.colorNeutralBackground1,
+    borderRadius: tokens.borderRadiusXLarge,
+    boxShadow: tokens.shadow4,
+    overflow: 'hidden',
+  },
+  previewHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalL}`,
+  },
+  previewIframe: {
+    width: '100%',
+    height: '400px',
+    border: 'none',
+  },
+  previewCaption: {
+    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalL}`,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
   },
 
   // ── Timeline ────────────────────────────
@@ -585,11 +596,16 @@ const useStyles = makeStyles({
     borderRadius: tokens.borderRadiusMedium,
     minWidth: '120px',
   },
+  swapPreviewRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
 });
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export const BoldDeploymentCenter = () => {
+export const BoldDeployments = () => {
   const styles = useStyles();
 
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
@@ -601,7 +617,10 @@ export const BoldDeploymentCenter = () => {
   const [showCredentials, setShowCredentials] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState('production');
   const [slotSwapDialogOpen, setSlotSwapDialogOpen] = useState(false);
+  const [swapWithPreview, setSwapWithPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [manageSlotsDialogOpen, setManageSlotsDialogOpen] = useState(false);
+  const currentSlotUrl = deploymentSlots.find(s => s.name === selectedSlot)?.url ?? '';
   const [traffic, setTraffic] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
     for (const slot of deploymentSlots) {
@@ -610,8 +629,12 @@ export const BoldDeploymentCenter = () => {
     return initial;
   });
 
-  const latestDeployment = deploymentHistory[0];
-  const recentDeployments = deploymentHistory.slice(1);
+  const filteredDeployments = useMemo(
+    () => allDeployments.filter(d => d.targetSlot === selectedSlot),
+    [selectedSlot],
+  );
+  const latestDeployment = filteredDeployments[0];
+  const recentDeployments = filteredDeployments.slice(1);
 
   const toggleExpanded = (id: string) => {
     setExpandedIds(prev =>
@@ -721,7 +744,11 @@ export const BoldDeploymentCenter = () => {
           <DialogBody>
             <DialogTitle>Swap deployment slots</DialogTitle>
             <DialogContent className={styles.swapDialogContent}>
-              <Text>Swapping will exchange content and configuration between slots.</Text>
+              <MessageBar intent="info">
+                <MessageBarBody>
+                  Swapping exchanges both slots simultaneously — staging content moves to production, and production content moves to staging. This preserves your previous production deployment for instant rollback.
+                </MessageBarBody>
+              </MessageBar>
               <div className={styles.swapSlotRow}>
                 <div className={styles.swapSlotName}>
                   <Subtitle2>production</Subtitle2>
@@ -733,10 +760,25 @@ export const BoldDeploymentCenter = () => {
                   <Caption1>{traffic['staging']}% traffic</Caption1>
                 </div>
               </div>
+              <div className={styles.swapPreviewRow}>
+                <Checkbox
+                  checked={swapWithPreview}
+                  onChange={(_, data) => setSwapWithPreview(!!data.checked)}
+                  label="Swap with preview"
+                />
+                <Tooltip
+                  content="First applies the target slot's settings to the source so you can verify the app works with production configuration, then completes the swap after your approval."
+                  relationship="description"
+                >
+                  <Info16Regular />
+                </Tooltip>
+              </div>
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setSlotSwapDialogOpen(false)}>Cancel</Button>
-              <Button appearance="primary" onClick={() => setSlotSwapDialogOpen(false)}>Confirm swap</Button>
+              <Button appearance="primary" onClick={() => setSlotSwapDialogOpen(false)}>
+                {swapWithPreview ? 'Start preview' : 'Confirm swap'}
+              </Button>
             </DialogActions>
           </DialogBody>
         </DialogSurface>
@@ -789,7 +831,7 @@ export const BoldDeploymentCenter = () => {
 
       {/* ── Header ─────────────────────────────────────────── */}
       <Text className={styles.pageTitle} block>
-        Deployment Center
+        Deployments
       </Text>
 
       {/* ── Source card ─────────────────────────────────────── */}
@@ -842,7 +884,9 @@ export const BoldDeploymentCenter = () => {
                 <span className={styles.dot} />
                 <StatusBadge status={latestDeployment.status} />
                 <span className={styles.dot} />
-                <span>{formatRelativeTime(latestDeployment.timestamp)}</span>
+                <Tooltip content={latestDeployment.timestamp} relationship="description">
+                  <span>{formatRelativeTime(latestDeployment.timestamp)}</span>
+                </Tooltip>
                 {latestDeployment.durationSeconds != null && (
                   <>
                     <span className={styles.dot} />
@@ -859,7 +903,16 @@ export const BoldDeploymentCenter = () => {
                     </span>
                   </Tooltip>
                 )}
+                {latestDeployment.branch && (
+                  <span className={styles.branchChip}>
+                    <span className={styles.branchIcon}><BranchFork24Regular /></span>
+                    {latestDeployment.branch}
+                  </span>
+                )}
               </div>
+              {latestDeployment.phases && (
+                <DeploymentPhasePills phases={latestDeployment.phases} />
+              )}
             </div>
             <span
               className={mergeClasses(
@@ -885,9 +938,10 @@ export const BoldDeploymentCenter = () => {
           )}
 
           {expandedIds.includes(latestDeployment.id) && latestDeployment.buildLogs && (
-            <pre className={styles.buildLogs}>
-              {latestDeployment.buildLogs.join('\n')}
-            </pre>
+            <StreamingLogViewer
+              logs={latestDeployment.buildLogs}
+              isStreaming={latestDeployment.status === 'InProgress'}
+            />
           )}
         </div>
       )}
@@ -901,6 +955,13 @@ export const BoldDeploymentCenter = () => {
           View on GitHub
         </Button>
         <Button
+          appearance="outline"
+          icon={<Open24Regular />}
+          onClick={() => window.open(currentSlotUrl, '_blank', 'noopener,noreferrer')}
+        >
+          View site
+        </Button>
+        <Button
           appearance="subtle"
           icon={<Settings24Regular />}
           onClick={() => {
@@ -910,6 +971,33 @@ export const BoldDeploymentCenter = () => {
         >
           Change source
         </Button>
+      </div>
+
+      {/* ── Site preview ───────────────────────────────────── */}
+      <div className={styles.previewPanel}>
+        <div className={styles.previewHeader}>
+          <Button
+            appearance="subtle"
+            icon={showPreview ? <EyeOff24Regular /> : <Eye24Regular />}
+            onClick={() => setShowPreview(prev => !prev)}
+          >
+            {showPreview ? 'Hide preview' : 'Preview site'}
+          </Button>
+        </div>
+        {showPreview && (
+          <>
+            <iframe
+              src={currentSlotUrl}
+              sandbox="allow-scripts allow-same-origin"
+              className={styles.previewIframe}
+              style={{ borderRadius: tokens.borderRadiusLarge }}
+              title="Site preview"
+            />
+            <Caption1 className={styles.previewCaption}>
+              Preview may not work for API-only applications or sites with X-Frame-Options restrictions.
+            </Caption1>
+          </>
+        )}
       </div>
 
       <Divider />
@@ -952,14 +1040,32 @@ export const BoldDeploymentCenter = () => {
                   <div className={styles.entryMeta}>
                     <span>{entry.author}</span>
                     <span className={styles.dot} />
-                    <span>{formatRelativeTime(entry.timestamp)}</span>
+                    <Tooltip content={entry.timestamp} relationship="description">
+                      <span>{formatRelativeTime(entry.timestamp)}</span>
+                    </Tooltip>
                     {entry.durationSeconds != null && (
                       <>
                         <span className={styles.dot} />
                         <span>{formatDuration(entry.durationSeconds)}</span>
                       </>
                     )}
+                    {entry.commitId && (
+                      <Tooltip content={`Commit ${entry.commitId}`} relationship="description">
+                        <span className={styles.commitHash}>
+                          {entry.commitId.slice(0, 7)}
+                        </span>
+                      </Tooltip>
+                    )}
+                    {entry.branch && (
+                      <span className={styles.branchChip}>
+                        <span className={styles.branchIcon}><BranchFork24Regular /></span>
+                        {entry.branch}
+                      </span>
+                    )}
                   </div>
+                  {entry.phases && (
+                    <DeploymentPhasePills phases={entry.phases} />
+                  )}
                 </div>
 
                 <div className={styles.entryRight}>
@@ -976,9 +1082,10 @@ export const BoldDeploymentCenter = () => {
               </div>
 
               {isExpanded && entry.buildLogs && (
-                <pre className={styles.buildLogs}>
-                  {entry.buildLogs.join('\n')}
-                </pre>
+                <StreamingLogViewer
+                  logs={entry.buildLogs}
+                  isStreaming={entry.status === 'InProgress'}
+                />
               )}
             </div>
           );

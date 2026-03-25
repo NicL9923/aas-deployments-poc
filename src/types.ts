@@ -6,6 +6,15 @@ export type DeploymentStatus = 'Success' | 'Failed' | 'InProgress' | 'Pending' |
 export type SlotStatus = 'Running' | 'Stopped';
 export type AppStatus = 'Running' | 'Stopped';
 
+export type DeploymentPhaseStatus = 'complete' | 'active' | 'pending' | 'failed';
+
+export interface DeploymentPhase {
+  name: string;
+  status: DeploymentPhaseStatus;
+  startedAt?: string;
+  completedAt?: string;
+}
+
 export interface WebAppResource {
   name: string;
   resourceGroup: string;
@@ -42,9 +51,12 @@ export interface DeploymentEntry {
   message: string;
   commitId?: string;
   commitMessage?: string;
+  branch?: string;
+  targetSlot: string;
   durationSeconds?: number;
   buildLogs?: string[];
   sourceType: DeploymentSourceType;
+  phases?: DeploymentPhase[];
 }
 
 export interface DeploymentSlot {

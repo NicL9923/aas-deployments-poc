@@ -28,8 +28,10 @@ import {
   Toolbar,
   ToolbarButton,
   Tooltip,
+  Checkbox,
 } from '@fluentui/react-components';
 import {
+  Info16Regular,
   AddCircleRegular,
   ArrowSwapRegular,
   ArrowSyncRegular,
@@ -167,6 +169,11 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground3,
     fontSize: tokens.fontSizeBase200,
   },
+  swapPreviewRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -278,6 +285,7 @@ export const SafeDeploymentSlots = () => {
   const slots = deploymentSlots;
 
   const [showSwapDialog, setShowSwapDialog] = useState(false);
+  const [swapWithPreview, setSwapWithPreview] = useState(false);
   const [selectedSourceSlot, setSelectedSourceSlot] = useState('staging');
   const [selectedTargetSlot, setSelectedTargetSlot] = useState('production');
 
@@ -442,6 +450,11 @@ export const SafeDeploymentSlots = () => {
           <DialogBody>
             <DialogTitle>Swap deployment slots</DialogTitle>
             <DialogContent className={styles.dialogContent}>
+              <MessageBar intent="info">
+                <MessageBarBody>
+                  Swapping exchanges both slots simultaneously — staging content moves to production, and production content moves to staging. This preserves your previous production deployment for instant rollback.
+                </MessageBarBody>
+              </MessageBar>
               <Text>
                 Swapping will exchange the content and configurations between the source and target
                 slots.
@@ -493,6 +506,20 @@ export const SafeDeploymentSlots = () => {
                 <SettingsComparison source={sourceSlot} target={targetSlot} />
               )}
 
+              <div className={styles.swapPreviewRow}>
+                <Checkbox
+                  checked={swapWithPreview}
+                  onChange={(_, data) => setSwapWithPreview(!!data.checked)}
+                  label="Swap with preview"
+                />
+                <Tooltip
+                  content="First applies the target slot's settings to the source so you can verify the app works with production configuration, then completes the swap after your approval."
+                  relationship="description"
+                >
+                  <Info16Regular />
+                </Tooltip>
+              </div>
+
               <MessageBar intent="warning">
                 <MessageBarBody>
                   Slot settings (marked with 🔒) will NOT be swapped.
@@ -505,7 +532,7 @@ export const SafeDeploymentSlots = () => {
                 <Button>Cancel</Button>
               </DialogTrigger>
               <Button appearance="primary" icon={<ArrowSwapRegular />}>
-                Swap
+                {swapWithPreview ? 'Start preview' : 'Swap'}
               </Button>
             </DialogActions>
           </DialogBody>

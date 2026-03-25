@@ -110,7 +110,11 @@ export const LeftNav = () => {
       </div>
 
       <div
-        className={mergeClasses(styles.menuItem, styles.menuItemDisabled)}
+        className={mergeClasses(
+          styles.menuItem,
+          isActive('/overview') && styles.menuItemActive,
+        )}
+        onClick={() => navigate('/overview')}
       >
         <span className={styles.icon}><Home24Regular /></span>
         <Text>Overview</Text>
@@ -143,12 +147,12 @@ export const LeftNav = () => {
           className={mergeClasses(
             styles.menuItem,
             styles.childItem,
-            isActive('/deployment-center') && styles.menuItemActive,
+            isActive('/deployments') && styles.menuItemActive,
           )}
-          onClick={() => navigate('/deployment-center')}
+          onClick={() => navigate('/deployments')}
         >
           <span className={styles.icon}><ArrowSync24Regular /></span>
-          <Text>Deployment center</Text>
+          <Text>Deployments</Text>
         </div>
       )}
 

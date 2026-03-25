@@ -45,6 +45,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Build and deploy in progress...',
     commitId: 'a3f8b2c',
     commitMessage: 'feat: add real-time notification websocket endpoint',
+    branch: 'main',
+    targetSlot: 'production',
     sourceType: 'github',
     buildLogs: [
       '▶ Run actions/checkout@v4',
@@ -60,6 +62,13 @@ export const deploymentHistory: DeploymentEntry[] = [
       '  > tsc && vite build',
       '  Building for production...',
     ],
+    phases: [
+      { name: 'Checkout', status: 'complete', startedAt: new Date(now - minutes(12)).toISOString(), completedAt: new Date(now - minutes(11)).toISOString() },
+      { name: 'Install', status: 'complete', startedAt: new Date(now - minutes(11)).toISOString(), completedAt: new Date(now - minutes(8)).toISOString() },
+      { name: 'Build', status: 'active', startedAt: new Date(now - minutes(8)).toISOString() },
+      { name: 'Test', status: 'pending' },
+      { name: 'Deploy', status: 'pending' },
+    ],
   },
   {
     id: 'dep-002',
@@ -69,6 +78,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Deployment successful',
     commitId: 'e7d4a91',
     commitMessage: 'fix: resolve memory leak in connection pool manager',
+    branch: 'main',
+    targetSlot: 'production',
     durationSeconds: 94,
     sourceType: 'github',
     buildLogs: [
@@ -85,6 +96,13 @@ export const deploymentHistory: DeploymentEntry[] = [
       '▶ Deploy to Azure Web App',
       '  Deployment successful. Site: nl-testwebapp-1.azurewebsites.net',
     ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'complete' },
+      { name: 'Test', status: 'complete' },
+      { name: 'Deploy', status: 'complete' },
+    ],
   },
   {
     id: 'dep-003',
@@ -94,6 +112,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Deployment successful',
     commitId: 'b1c2d3e',
     commitMessage: 'chore: upgrade express to 5.1.0 and update middleware chain',
+    branch: 'main',
+    targetSlot: 'production',
     durationSeconds: 112,
     sourceType: 'github',
     buildLogs: [
@@ -108,6 +128,13 @@ export const deploymentHistory: DeploymentEntry[] = [
       '▶ Deploy to Azure Web App',
       '  Deployment successful.',
     ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'complete' },
+      { name: 'Test', status: 'complete' },
+      { name: 'Deploy', status: 'complete' },
+    ],
   },
   {
     id: 'dep-004',
@@ -117,6 +144,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Deployment successful',
     commitId: 'c4d5e6f',
     commitMessage: 'chore(deps): bump axios from 1.7.2 to 1.7.9',
+    branch: 'main',
+    targetSlot: 'production',
     durationSeconds: 78,
     sourceType: 'github',
     buildLogs: [
@@ -130,6 +159,13 @@ export const deploymentHistory: DeploymentEntry[] = [
       '▶ Deploy to Azure Web App',
       '  Deployment successful.',
     ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'complete' },
+      { name: 'Test', status: 'complete' },
+      { name: 'Deploy', status: 'complete' },
+    ],
   },
   {
     id: 'dep-005',
@@ -139,6 +175,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Build failed — TypeScript compilation errors',
     commitId: 'f7a8b9c',
     commitMessage: 'feat: add user preference caching layer',
+    branch: 'main',
+    targetSlot: 'production',
     durationSeconds: 42,
     sourceType: 'github',
     buildLogs: [
@@ -152,6 +190,13 @@ export const deploymentHistory: DeploymentEntry[] = [
       '  Build failed with 2 errors',
       '❌ Process completed with exit code 1.',
     ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'failed' },
+      { name: 'Test', status: 'pending' },
+      { name: 'Deploy', status: 'pending' },
+    ],
   },
   {
     id: 'dep-006',
@@ -161,6 +206,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Deployment successful',
     commitId: 'd0e1f2a',
     commitMessage: 'refactor: extract auth middleware into separate module',
+    branch: 'main',
+    targetSlot: 'production',
     durationSeconds: 101,
     sourceType: 'github',
     buildLogs: [
@@ -173,6 +220,13 @@ export const deploymentHistory: DeploymentEntry[] = [
       '▶ Deploy to Azure Web App',
       '  Deployment successful.',
     ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'complete' },
+      { name: 'Test', status: 'complete' },
+      { name: 'Deploy', status: 'complete' },
+    ],
   },
   {
     id: 'dep-007',
@@ -182,6 +236,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Deployment successful',
     commitId: 'a2b3c4d',
     commitMessage: 'feat: implement rate limiting for public API endpoints',
+    branch: 'main',
+    targetSlot: 'production',
     durationSeconds: 135,
     sourceType: 'github',
     buildLogs: [
@@ -194,6 +250,13 @@ export const deploymentHistory: DeploymentEntry[] = [
       '▶ Deploy to Azure Web App',
       '  Deployment successful.',
     ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'complete' },
+      { name: 'Test', status: 'complete' },
+      { name: 'Deploy', status: 'complete' },
+    ],
   },
   {
     id: 'dep-008',
@@ -203,6 +266,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Deployment canceled by user',
     commitId: 'e5f6a7b',
     commitMessage: 'wip: experimental graphql resolver — not ready',
+    branch: 'main',
+    targetSlot: 'production',
     durationSeconds: 18,
     sourceType: 'github',
     buildLogs: [
@@ -220,6 +285,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Deployment successful',
     commitId: 'c8d9e0f',
     commitMessage: 'fix: correct timezone handling in scheduled job runner',
+    branch: 'main',
+    targetSlot: 'production',
     durationSeconds: 88,
     sourceType: 'github',
     buildLogs: [
@@ -232,6 +299,13 @@ export const deploymentHistory: DeploymentEntry[] = [
       '▶ Deploy to Azure Web App',
       '  Deployment successful.',
     ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'complete' },
+      { name: 'Test', status: 'complete' },
+      { name: 'Deploy', status: 'complete' },
+    ],
   },
   {
     id: 'dep-010',
@@ -241,6 +315,8 @@ export const deploymentHistory: DeploymentEntry[] = [
     message: 'Deployment failed — health check timeout',
     commitId: '1a2b3c4',
     commitMessage: 'feat: add prometheus metrics endpoint',
+    branch: 'main',
+    targetSlot: 'production',
     durationSeconds: 178,
     sourceType: 'github',
     buildLogs: [
@@ -256,6 +332,13 @@ export const deploymentHistory: DeploymentEntry[] = [
       '  ❌ Health check failed: /api/health returned 503 after 300s',
       '  Deployment failed.',
     ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'complete' },
+      { name: 'Test', status: 'complete' },
+      { name: 'Deploy', status: 'failed' },
+    ],
   },
 ];
 
@@ -267,6 +350,8 @@ const stagingLastDeploy: DeploymentEntry = {
   message: 'Staging deployment successful',
   commitId: 'a3f8b2c',
   commitMessage: 'feat: add real-time notification websocket endpoint',
+  branch: 'main',
+  targetSlot: 'staging',
   durationSeconds: 97,
   sourceType: 'github',
   buildLogs: [
@@ -277,7 +362,112 @@ const stagingLastDeploy: DeploymentEntry = {
     '▶ Deploy to staging slot',
     '  Deployment successful.',
   ],
+  phases: [
+    { name: 'Checkout', status: 'complete' },
+    { name: 'Install', status: 'complete' },
+    { name: 'Build', status: 'complete' },
+    { name: 'Test', status: 'complete' },
+    { name: 'Deploy', status: 'complete' },
+  ],
 };
+
+export const stagingDeploymentHistory: DeploymentEntry[] = [
+  {
+    id: 'dep-stg-002',
+    timestamp: new Date(now - hours(6)).toISOString(),
+    author: 'NicL9923',
+    status: 'Success',
+    message: 'Staging deployment successful',
+    commitId: 'b1c2d3e',
+    commitMessage: 'chore: upgrade express to 5.1.0 and update middleware chain',
+    branch: 'main',
+    targetSlot: 'staging',
+    durationSeconds: 105,
+    sourceType: 'github',
+    buildLogs: [
+      '▶ Run actions/checkout@v4',
+      '▶ Run npm ci',
+      '  added 851 packages in 22s',
+      '▶ Run npm run build',
+      '  Build completed successfully',
+      '▶ Deploy to staging slot',
+      '  Deployment successful.',
+    ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'complete' },
+      { name: 'Test', status: 'complete' },
+      { name: 'Deploy', status: 'complete' },
+    ],
+  },
+  {
+    id: 'dep-stg-003',
+    timestamp: new Date(now - minutes(45)).toISOString(),
+    author: 'NicL9923',
+    status: 'InProgress',
+    message: 'Staging build and deploy in progress...',
+    commitId: 'e7d4a91',
+    commitMessage: 'fix: resolve memory leak in connection pool manager',
+    branch: 'main',
+    targetSlot: 'staging',
+    sourceType: 'github',
+    buildLogs: [
+      '▶ Run actions/checkout@v4',
+      '  Syncing repository: NicL9923/my-node-app',
+      '▶ Run actions/setup-node@v4',
+      '  Node.js version 22.x installed',
+      '▶ Run npm ci',
+      '  added 847 packages in 21s',
+      '▶ Run npm run build',
+      '  Building for staging...',
+    ],
+    phases: [
+      { name: 'Checkout', status: 'complete', startedAt: new Date(now - minutes(45)).toISOString(), completedAt: new Date(now - minutes(44)).toISOString() },
+      { name: 'Install', status: 'complete', startedAt: new Date(now - minutes(44)).toISOString(), completedAt: new Date(now - minutes(41)).toISOString() },
+      { name: 'Build', status: 'active', startedAt: new Date(now - minutes(41)).toISOString() },
+      { name: 'Test', status: 'pending' },
+      { name: 'Deploy', status: 'pending' },
+    ],
+  },
+  {
+    id: 'dep-stg-004',
+    timestamp: new Date(now - hours(28)).toISOString(),
+    author: 'NicL9923',
+    status: 'Failed',
+    message: 'Staging deployment failed — test suite failures',
+    commitId: 'f7a8b9c',
+    commitMessage: 'feat: add user preference caching layer',
+    branch: 'main',
+    targetSlot: 'staging',
+    durationSeconds: 67,
+    sourceType: 'github',
+    buildLogs: [
+      '▶ Run actions/checkout@v4',
+      '▶ Run npm ci',
+      '  added 847 packages in 20s',
+      '▶ Run npm run build',
+      '  Build completed successfully',
+      '▶ Run npm test',
+      '  FAIL src/cache/PreferenceCache.test.ts',
+      '  Tests: 3 failed, 139 passed',
+      '❌ Process completed with exit code 1.',
+    ],
+    phases: [
+      { name: 'Checkout', status: 'complete' },
+      { name: 'Install', status: 'complete' },
+      { name: 'Build', status: 'complete' },
+      { name: 'Test', status: 'failed' },
+      { name: 'Deploy', status: 'pending' },
+    ],
+  },
+];
+
+export const allDeployments: DeploymentEntry[] = [
+  ...deploymentHistory,
+  ...stagingDeploymentHistory,
+  stagingLastDeploy,
+].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
 export const deploymentSlots: DeploymentSlot[] = [
   {
