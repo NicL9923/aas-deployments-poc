@@ -2,7 +2,6 @@ import type {
   WebAppResource,
   DeploymentSourceConfig,
   DeploymentEntry,
-  DeploymentLogEntry,
   DeploymentSlot,
   FtpsCredentials,
 } from '../types';

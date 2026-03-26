@@ -27,7 +27,6 @@ import {
   Dropdown,
   Link,
   Option,
-  ProgressBar,
   Dialog,
   DialogSurface,
   DialogBody,
@@ -35,7 +34,6 @@ import {
   DialogContent,
   DialogActions,
   Text,
-  Caption1,
   Divider,
   Input,
   Label,
@@ -981,7 +979,7 @@ export const BoldDeployments = () => {
                   <Option value="Do not clone settings">Do not clone settings</Option>
                   <Option value={webApp.name}>{webApp.name}</Option>
                   {deploymentSlots.filter(s => !s.isProduction).map(s => (
-                    <Option key={s.name} value={`${webApp.name}-${s.name}`}>{webApp.name}-{s.name}</Option>
+                    <Option key={s.name} value={`${webApp.name}-${s.name}`} text={`${webApp.name}-${s.name}`}>{webApp.name}-{s.name}</Option>
                   ))}
                 </Dropdown>
               </div>
@@ -1162,7 +1160,7 @@ export const BoldDeployments = () => {
           <div className={styles.trafficBar}>
             {deploymentSlots
               .filter(s => traffic[s.name] > 0)
-              .map((slot, i) => (
+              .map((slot) => (
               <div
                 key={slot.name}
                 className={styles.trafficBarChunk}
