@@ -1,5 +1,3 @@
-export type VariantMode = 'bold' | 'safe';
-
 export type DeploymentSourceType = 'github' | 'bitbucket' | 'localGit' | 'azureRepos' | 'externalGit' | 'publishFiles' | 'none';
 export type BuildProvider = 'githubActions' | 'azurePipelines' | 'kudu' | 'none';
 export type DeploymentStatus = 'Success' | 'Failed' | 'InProgress' | 'Pending' | 'Canceled';
@@ -55,6 +53,7 @@ export interface DeploymentEntry {
   targetSlot: string;
   durationSeconds?: number;
   buildLogs?: string[];
+  deploymentLogs?: DeploymentLogEntry[];
   sourceType: DeploymentSourceType;
   phases?: DeploymentPhase[];
 }
@@ -77,6 +76,12 @@ export interface FtpsCredentials {
   userScopeUsername: string;
   userScopePassword: string;
   isEnabled: boolean;
+}
+
+export interface DeploymentLogEntry {
+  timestamp: string;
+  activity: string;
+  detailLogs?: string[];
 }
 
 export type LeftNavItem = {

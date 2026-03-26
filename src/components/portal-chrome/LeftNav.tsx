@@ -4,6 +4,9 @@ import {
   tokens,
   Input,
   Text,
+  Badge,
+  Dropdown,
+  Option,
   mergeClasses,
 } from '@fluentui/react-components';
 import {
@@ -16,6 +19,8 @@ import {
   ChevronRight16Regular,
 } from '@fluentui/react-icons';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useSlot } from '../../context/SlotContext';
+import { deploymentSlots } from '../../mock-data';
 
 const useStyles = makeStyles({
   root: {
@@ -27,6 +32,31 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     overflowY: 'auto',
     flexShrink: 0,
+  },
+  slotSelector: {
+    padding: tokens.spacingHorizontalS,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
+  },
+  slotDropdown: {
+    width: '100%',
+  },
+  slotOptionContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
+  slotOptionDot: {
+    display: 'inline-block',
+    width: '8px',
+    height: '8px',
+    borderRadius: tokens.borderRadiusCircular,
+    flexShrink: 0,
+  },
+  slotOptionDotRunning: {
+    backgroundColor: tokens.colorPaletteGreenBackground3,
+  },
+  slotOptionDotStopped: {
+    backgroundColor: tokens.colorPaletteRedBackground3,
   },
   searchContainer: {
     padding: tokens.spacingHorizontalS,
@@ -88,6 +118,7 @@ export const LeftNav = () => {
   const styles = useStyles();
   const navigate = useNavigate();
   const location = useLocation();
+  const { selectedSlot, setSelectedSlot } = useSlot();
 
   const [deploymentExpanded, setDeploymentExpanded] = useState(true);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
@@ -100,6 +131,35 @@ export const LeftNav = () => {
 
   return (
     <nav className={styles.root}>
+      <div className={styles.slotSelector}>
+        <Dropdown
+          className={styles.slotDropdown}
+          value={selectedSlot}
+          selectedOptions={[selectedSlot]}
+          size="small"
+          onOptionSelect={(_, data) => {
+            if (data.optionValue) setSelectedSlot(data.optionValue);
+          }}
+        >
+          {deploymentSlots.map((slot) => (
+            <Option key={slot.name} value={slot.name} text={slot.name}>
+              <div className={styles.slotOptionContent}>
+                <span
+                  className={mergeClasses(
+                    styles.slotOptionDot,
+                    slot.status === 'Running' ? styles.slotOptionDotRunning : styles.slotOptionDotStopped,
+                  )}
+                />
+                <Text size={200} weight="semibold">{slot.name}</Text>
+                {slot.isProduction && (
+                  <Badge size="small" color="brand" appearance="tint">prod</Badge>
+                )}
+              </div>
+            </Option>
+          ))}
+        </Dropdown>
+      </div>
+
       <div className={styles.searchContainer}>
         <Input
           contentBefore={<Search24Regular />}

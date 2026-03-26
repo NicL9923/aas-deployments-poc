@@ -1,13 +1,13 @@
 import { FluentProvider } from '@fluentui/react-components';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { portalTheme } from './theme/portalTheme';
-import { VariantProvider } from './context/VariantContext';
+import { SlotProvider } from './context/SlotContext';
 import { PortalShell } from './components/portal-chrome/PortalShell';
 import { DeploymentsPage } from './pages/DeploymentsPage';
 import { OverviewPage } from './pages/OverviewPage';
 const App = () => (
   <FluentProvider theme={portalTheme}>
-    <VariantProvider>
+    <SlotProvider>
       <BrowserRouter>
         <PortalShell>
           <Routes>
@@ -19,7 +19,7 @@ const App = () => (
           </Routes>
         </PortalShell>
       </BrowserRouter>
-    </VariantProvider>
+    </SlotProvider>
   </FluentProvider>
 );
 

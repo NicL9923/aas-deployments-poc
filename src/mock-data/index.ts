@@ -2,6 +2,7 @@ import type {
   WebAppResource,
   DeploymentSourceConfig,
   DeploymentEntry,
+  DeploymentLogEntry,
   DeploymentSlot,
   FtpsCredentials,
 } from '../types';
@@ -69,6 +70,42 @@ export const deploymentHistory: DeploymentEntry[] = [
       { name: 'Test', status: 'pending' },
       { name: 'Deploy', status: 'pending' },
     ],
+    deploymentLogs: [
+      { timestamp: '3/24/2026, 03:41:53 PM', activity: 'Updating submodules.' },
+      { timestamp: '3/24/2026, 03:41:54 PM', activity: "Preparing deployment for commit id 'd9993b0c-b'." },
+      { timestamp: '3/24/2026, 03:41:55 PM', activity: 'PreDeployment: context.CleanOutputPath False' },
+      { timestamp: '3/24/2026, 03:41:55 PM', activity: 'PreDeployment: context.OutputPath /home/site/wwwroot' },
+      { timestamp: '3/24/2026, 03:41:55 PM', activity: 'Running build. Project type: OneDeploy' },
+      { timestamp: '3/24/2026, 03:41:55 PM', activity: 'Copying the manifest' },
+      { timestamp: '3/24/2026, 03:41:55 PM', activity: 'NodeProjectOptimizer Initialized with repository path: /tmp/zipdeploy/extracted and output path: /home/site/wwwroot' },
+      { timestamp: '3/24/2026, 03:41:55 PM', activity: 'Optimizing build...' },
+      {
+        timestamp: '3/24/2026, 03:41:55 PM',
+        activity: 'Zipping node_modules...',
+        detailLogs: [
+          'Creating archive: /tmp/zipdeploy/extracted/node_modules.tar.gz',
+          'Compressing 847 packages (142MB → 38MB)',
+          'Archive created successfully in 4.2s',
+        ],
+      },
+      { timestamp: '3/24/2026, 03:41:56 PM', activity: 'Zipped Node Modules to /tmp/zipdeploy/extracted/node_modules.tar.gz' },
+      {
+        timestamp: '3/24/2026, 03:41:56 PM',
+        activity: 'Express Node Deploy: Running rsync...',
+        detailLogs: [
+          'rsync --archive --delete /tmp/zipdeploy/extracted/ /home/site/wwwroot/',
+          'sending incremental file list',
+          'sent 42,381,204 bytes  received 1,247 bytes  28,254,967.33 bytes/sec',
+          'total size is 142,003,891  speedup is 3.35',
+        ],
+      },
+      { timestamp: '3/24/2026, 03:43:34 PM', activity: 'Rsync completed to /home/site/wwwroot' },
+      { timestamp: '3/24/2026, 03:43:34 PM', activity: 'Manifest created at /home/site/wwwroot' },
+      { timestamp: '3/24/2026, 03:43:34 PM', activity: 'Optimized build done with success: True' },
+      { timestamp: '3/24/2026, 03:43:34 PM', activity: 'Build completed successfully.' },
+      { timestamp: '3/24/2026, 03:43:35 PM', activity: 'Running post deployment command(s)...' },
+      { timestamp: '3/24/2026, 03:43:35 PM', activity: 'Triggering container recycle for OneDeploy by adding/updating restartTrigger.txt to the site root path.' },
+    ],
   },
   {
     id: 'dep-002',
@@ -103,6 +140,24 @@ export const deploymentHistory: DeploymentEntry[] = [
       { name: 'Test', status: 'complete' },
       { name: 'Deploy', status: 'complete' },
     ],
+    deploymentLogs: [
+      { timestamp: '3/24/2026, 01:10:02 PM', activity: 'Updating submodules.' },
+      { timestamp: '3/24/2026, 01:10:03 PM', activity: "Preparing deployment for commit id 'e7d4a91f-a'." },
+      { timestamp: '3/24/2026, 01:10:04 PM', activity: 'Running build. Project type: OneDeploy' },
+      { timestamp: '3/24/2026, 01:10:05 PM', activity: 'Optimizing build...' },
+      {
+        timestamp: '3/24/2026, 01:10:06 PM',
+        activity: 'Zipping node_modules...',
+        detailLogs: [
+          'Creating archive: /tmp/zipdeploy/extracted/node_modules.tar.gz',
+          'Compressing 812 packages (138MB → 36MB)',
+          'Archive created successfully in 3.8s',
+        ],
+      },
+      { timestamp: '3/24/2026, 01:11:42 PM', activity: 'Build completed successfully.' },
+      { timestamp: '3/24/2026, 01:11:43 PM', activity: 'Running post deployment command(s)...' },
+      { timestamp: '3/24/2026, 01:11:43 PM', activity: 'Deployment successful.' },
+    ],
   },
   {
     id: 'dep-003',
@@ -134,6 +189,14 @@ export const deploymentHistory: DeploymentEntry[] = [
       { name: 'Build', status: 'complete' },
       { name: 'Test', status: 'complete' },
       { name: 'Deploy', status: 'complete' },
+    ],
+    deploymentLogs: [
+      { timestamp: '3/24/2026, 09:22:10 AM', activity: 'Updating submodules.' },
+      { timestamp: '3/24/2026, 09:22:11 AM', activity: "Preparing deployment for commit id 'b1c2d3e4-c'." },
+      { timestamp: '3/24/2026, 09:22:12 AM', activity: 'Running build. Project type: OneDeploy' },
+      { timestamp: '3/24/2026, 09:22:13 AM', activity: 'Build completed successfully.' },
+      { timestamp: '3/24/2026, 09:22:14 AM', activity: 'Running post deployment command(s)...' },
+      { timestamp: '3/24/2026, 09:22:14 AM', activity: 'Deployment successful.' },
     ],
   },
   {
@@ -475,7 +538,7 @@ export const deploymentSlots: DeploymentSlot[] = [
     isProduction: true,
     status: 'Running',
     lastDeployment: deploymentHistory[1],
-    trafficPercentage: 100,
+    trafficPercentage: 75,
     url: 'https://nl-testwebapp-1.azurewebsites.net',
     runtimeStack: 'Node 22-LTS',
     appSettings: [
@@ -491,7 +554,7 @@ export const deploymentSlots: DeploymentSlot[] = [
     isProduction: false,
     status: 'Running',
     lastDeployment: stagingLastDeploy,
-    trafficPercentage: 0,
+    trafficPercentage: 25,
     url: 'https://nl-testwebapp-1-staging.azurewebsites.net',
     runtimeStack: 'Node 22-LTS',
     appSettings: [

@@ -1,10 +1,8 @@
-import { useCallback } from 'react';
 import {
   makeStyles,
   tokens,
   Text,
   Input,
-  mergeClasses,
 } from '@fluentui/react-components';
 import {
   GridDots24Regular,
@@ -12,8 +10,6 @@ import {
   Search24Regular,
   PersonCircle24Regular,
 } from '@fluentui/react-icons';
-import { useVariant } from '../../context/VariantContext';
-import type { VariantMode } from '../../types';
 
 const useStyles = makeStyles({
   root: {
@@ -61,52 +57,10 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalM,
     marginLeft: 'auto',
   },
-  variantSwitcher: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalXS,
-  },
-  variantLabel: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: tokens.fontSizeBase200,
-    whiteSpace: 'nowrap',
-  },
-  variantToggle: {
-    display: 'flex',
-    borderRadius: tokens.borderRadiusMedium,
-    overflow: 'hidden',
-    border: '1px solid rgba(255,255,255,0.3)',
-  },
-  variantButton: {
-    border: 'none',
-    cursor: 'pointer',
-    paddingTop: '2px',
-    paddingBottom: '2px',
-    paddingLeft: tokens.spacingHorizontalS,
-    paddingRight: tokens.spacingHorizontalS,
-    fontSize: tokens.fontSizeBase200,
-    fontWeight: tokens.fontWeightSemibold,
-    backgroundColor: 'transparent',
-    color: 'rgba(255,255,255,0.8)',
-    transition: 'all 0.15s ease',
-    lineHeight: '20px',
-  },
-  variantButtonActive: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    color: '#0078d4',
-  },
 });
 
 export const TopBar = () => {
   const styles = useStyles();
-  const { variant, setVariant } = useVariant();
-
-  const handleVariantChange = useCallback(
-    (v: VariantMode) => {
-      setVariant(v);
-    },
-    [setVariant],
-  );
 
   return (
     <div className={styles.root}>
@@ -131,29 +85,6 @@ export const TopBar = () => {
       </div>
 
       <div className={styles.rightSection}>
-        <div className={styles.variantSwitcher}>
-          <Text className={styles.variantLabel}>Experience:</Text>
-          <div className={styles.variantToggle}>
-            <button
-              className={mergeClasses(
-                styles.variantButton,
-                variant === 'bold' && styles.variantButtonActive,
-              )}
-              onClick={() => handleVariantChange('bold')}
-            >
-              Bold
-            </button>
-            <button
-              className={mergeClasses(
-                styles.variantButton,
-                variant === 'safe' && styles.variantButtonActive,
-              )}
-              onClick={() => handleVariantChange('safe')}
-            >
-              Safe
-            </button>
-          </div>
-        </div>
         <span className={styles.icon}>
           <PersonCircle24Regular />
         </span>

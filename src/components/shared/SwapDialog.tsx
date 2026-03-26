@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { StatusBadge } from './StatusBadge';
 import {
   Badge,
   Button,
@@ -104,6 +105,20 @@ const useStyles = makeStyles({
   },
   messageBar: {
     marginBottom: tokens.spacingVerticalS,
+  },
+  configTable: {
+    tableLayout: 'fixed' as const,
+    width: '100%',
+  },
+  ellipsisCell: {
+    overflowX: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: 0,
+  },
+  slotDeployInfo: {
+    color: tokens.colorNeutralForeground3,
+    fontSize: tokens.fontSizeBase200,
   },
 });
 
@@ -250,6 +265,17 @@ export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
                   </Option>
                 ))}
               </Dropdown>
+              {sourceSlot?.lastDeployment && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                  <Text className={styles.slotDeployInfo}>
+                    {sourceSlot.lastDeployment.commitId?.slice(0, 7)}{' '}
+                    {(sourceSlot.lastDeployment.commitMessage ?? sourceSlot.lastDeployment.message).length > 50
+                      ? `${(sourceSlot.lastDeployment.commitMessage ?? sourceSlot.lastDeployment.message).slice(0, 50)}\u2026`
+                      : (sourceSlot.lastDeployment.commitMessage ?? sourceSlot.lastDeployment.message)}
+                  </Text>
+                  <StatusBadge status={sourceSlot.lastDeployment.status} />
+                </div>
+              )}
             </div>
 
             {/* Target section */}
@@ -275,6 +301,17 @@ export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
                   </Option>
                 ))}
               </Dropdown>
+              {targetSlot?.lastDeployment && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                  <Text className={styles.slotDeployInfo}>
+                    {targetSlot.lastDeployment.commitId?.slice(0, 7)}{' '}
+                    {(targetSlot.lastDeployment.commitMessage ?? targetSlot.lastDeployment.message).length > 50
+                      ? `${(targetSlot.lastDeployment.commitMessage ?? targetSlot.lastDeployment.message).slice(0, 50)}\u2026`
+                      : (targetSlot.lastDeployment.commitMessage ?? targetSlot.lastDeployment.message)}
+                  </Text>
+                  <StatusBadge status={targetSlot.lastDeployment.status} />
+                </div>
+              )}
             </div>
 
             {/* Info bar */}
@@ -333,7 +370,7 @@ export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
                     <Text>No changes</Text>
                   </div>
                 ) : (
-                  <Table>
+                  <Table className={styles.configTable}>
                     <TableHeader>
                       <TableRow>
                         {columns.map((col) => (
@@ -344,10 +381,10 @@ export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
                     <TableBody>
                       {activeDiffs.map((diff) => (
                         <TableRow key={diff.setting}>
-                          <TableCell>{diff.setting}</TableCell>
+                          <TableCell className={styles.ellipsisCell} title={diff.setting}>{diff.setting}</TableCell>
                           <TableCell>{diff.type}</TableCell>
-                          <TableCell>{diff.oldValue}</TableCell>
-                          <TableCell>{diff.newValue}</TableCell>
+                          <TableCell className={styles.ellipsisCell} title={diff.oldValue}>{diff.oldValue}</TableCell>
+                          <TableCell className={styles.ellipsisCell} title={diff.newValue}>{diff.newValue}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

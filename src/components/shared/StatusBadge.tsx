@@ -1,4 +1,4 @@
-import { Badge, Spinner, makeStyles, tokens } from '@fluentui/react-components';
+import { Badge, makeStyles, tokens } from '@fluentui/react-components';
 import type { DeploymentStatus } from '../../types';
 
 const useStyles = makeStyles({
@@ -27,7 +27,6 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
 
   return (
     <span className={styles.wrapper}>
-      {status === 'InProgress' && <Spinner size="extra-tiny" />}
       <Badge color={config.color} appearance="filled">
         {config.label}
       </Badge>

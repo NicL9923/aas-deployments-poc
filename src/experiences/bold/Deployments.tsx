@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import type { DeploymentSourceType, DeploymentStatus } from '../../types';
+import type { DeploymentSourceType } from '../../types';
+import { useSlot } from '../../context/SlotContext';
 import {
   deploymentSource,
   allDeployments,
@@ -8,9 +9,11 @@ import {
   availableRepos,
   availableBranches,
   webApp,
+  ftpsCredentials,
 } from '../../mock-data';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { StreamingLogViewer } from '../../components/shared/StreamingLogViewer';
+import { DeploymentLogTable } from '../../components/shared/DeploymentLogTable';
 import { DeploymentPhasePills } from '../../components/shared/DeploymentPhasePills';
 import { SwapDialog } from '../../components/shared/SwapDialog';
 import { formatRelativeTime, formatDuration } from '../../utils';
@@ -32,12 +35,22 @@ import {
   DialogContent,
   DialogActions,
   Text,
+  Caption1,
   Divider,
   Input,
   Label,
   Tooltip,
   SpinButton,
   Subtitle2,
+  MessageBar,
+  MessageBarBody,
+  MessageBarTitle,
+  Menu,
+  MenuTrigger,
+  MenuPopover,
+  MenuList,
+  MenuItem,
+  MenuButton,
 } from '@fluentui/react-components';
 import {
   BranchFork24Regular,
@@ -49,10 +62,17 @@ import {
   Globe24Regular,
   Cloud24Regular,
   Eye24Regular,
-  EyeOff24Regular,
   ArrowSwap24Regular,
   LayerDiagonal24Regular,
   DocumentText24Regular,
+  ArrowCounterclockwise24Regular,
+  Copy24Regular,
+  Box24Regular,
+  Delete24Regular,
+  TextDescription24Regular,
+  Add24Regular,
+  Info16Regular,
+  ArrowDownload24Regular,
 } from '@fluentui/react-icons';
 
 // ─── Static data ────────────────────────────────────────────────────────────
@@ -62,13 +82,43 @@ const sourceOptions: {
   name: string;
   description: string;
   recommended?: boolean;
+  manual?: boolean;
 }[] = [
   { type: 'github', name: 'GitHub', description: 'Deploy using GitHub Actions workflows', recommended: true },
   { type: 'azureRepos', name: 'Azure Repos', description: 'Deploy from an Azure DevOps repository' },
   { type: 'bitbucket', name: 'Bitbucket', description: 'Deploy from Bitbucket Cloud' },
   { type: 'localGit', name: 'Local Git', description: 'Push directly from your local machine' },
-  { type: 'externalGit', name: 'External Git', description: 'Any publicly accessible Git repository' },
-  { type: 'publishFiles', name: 'Publish Files', description: 'Upload files from your dev tools' },
+  { type: 'externalGit', name: 'External Git', description: 'Any publicly accessible Git repository', manual: true },
+  { type: 'publishFiles', name: 'Publish files', description: 'Upload files from your dev tools', manual: true },
+];
+
+const sidecarContainers = [
+  {
+    name: 'otel-collector',
+    type: 'Sidecar',
+    source: 'Docker Hub',
+    image: 'otel/opentelemetry-collector',
+    tag: '0.96.0',
+    port: 4317,
+  },
+  {
+    name: 'ai-inference',
+    type: 'Sidecar',
+    source: 'Other container registries',
+    image: 'appsvc/docs/sidecars/sample-experiment',
+    tag: 'bitnet-b1.58-2b-4t-gguf',
+    port: 11434,
+  },
+];
+
+const activityLogs = [
+  { operation: 'Swap Web App Slots', status: 'Succeeded', time: '2 days ago', timestamp: 'Tue Mar 24 2026 10:32:14 GMT', initiatedBy: 'nicolaslayne@microsoft.com' },
+  { operation: 'Update Web App Configuration', status: 'Succeeded', time: '3 days ago', timestamp: 'Mon Mar 23 2026 15:18:42 GMT', initiatedBy: 'nicolaslayne@microsoft.com' },
+  { operation: 'Restart Web App', status: 'Succeeded', time: '5 days ago', timestamp: 'Sat Mar 21 2026 09:04:11 GMT', initiatedBy: 'nicolaslayne@microsoft.com' },
+  { operation: 'Update App Service Plan', status: 'Succeeded', time: '1 week ago', timestamp: 'Wed Mar 18 2026 14:22:05 GMT', initiatedBy: 'nicolaslayne@microsoft.com' },
+  { operation: 'Add Deployment Slot', status: 'Succeeded', time: '1 week ago', timestamp: 'Wed Mar 18 2026 14:10:33 GMT', initiatedBy: 'nicolaslayne@microsoft.com' },
+  { operation: 'Update Web App Configuration', status: 'Failed', time: '2 weeks ago', timestamp: 'Tue Mar 11 2026 11:45:20 GMT', initiatedBy: 'admin@contoso.com' },
+  { operation: 'Swap Web App Slots', status: 'Succeeded', time: '2 weeks ago', timestamp: 'Mon Mar 10 2026 08:30:55 GMT', initiatedBy: 'nicolaslayne@microsoft.com' },
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -94,9 +144,16 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalXXL,
-    maxWidth: '960px',
+    maxWidth: '100%',
     paddingTop: tokens.spacingVerticalXL,
     paddingBottom: tokens.spacingVerticalXXL,
+  },
+  // ── Top row (source + slots overview) ───
+  topRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: tokens.spacingHorizontalXXL,
+    alignItems: 'stretch',
   },
   // ── Source card──────────────────────────
   sourceCard: {
@@ -151,7 +208,12 @@ const useStyles = makeStyles({
     flexShrink: 0,
   },
   disconnectBtn: {
-    color: tokens.colorPaletteRedForeground1,
+    backgroundColor: tokens.colorPaletteRedBackground3,
+    color: tokens.colorNeutralForegroundOnBrand,
+    ':hover': {
+      backgroundColor: tokens.colorPaletteRedForeground1,
+      color: tokens.colorNeutralForegroundOnBrand,
+    },
   },
   sourceActions: {
     display: 'flex',
@@ -159,7 +221,80 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalS,
   },
 
+  // ── Slots overview card ────────────────
+  slotsOverviewCard: {
+    paddingTop: tokens.spacingVerticalM,
+    paddingBottom: tokens.spacingVerticalM,
+    paddingLeft: tokens.spacingHorizontalL,
+    paddingRight: tokens.spacingHorizontalL,
+    backgroundColor: tokens.colorNeutralBackground1,
+    borderRadius: tokens.borderRadiusLarge,
+    boxShadow: tokens.shadow4,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+  },
+  slotsOverviewHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
+  slotsOverviewDescription: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  trafficBar: {
+    display: 'flex',
+    height: '32px',
+    borderRadius: tokens.borderRadiusMedium,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  trafficBarChunk: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: tokens.fontSizeBase200,
+    fontWeight: tokens.fontWeightSemibold,
+    color: 'white',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    minWidth: 0,
+  },
+  slotListItem: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    fontSize: tokens.fontSizeBase200,
+  },
+  slotsLegend: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: tokens.spacingHorizontalL,
+  },
+  statusDotSmall: {
+    display: 'inline-block',
+    width: '8px',
+    height: '8px',
+    borderRadius: tokens.borderRadiusCircular,
+    flexShrink: 0,
+  },
+  statusDotRunning: {
+    backgroundColor: tokens.colorPaletteGreenForeground1,
+  },
+  statusDotStopped: {
+    backgroundColor: tokens.colorPaletteRedForeground3,
+  },
+
   // ── Hero card ───────────────────────────
+  heroRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: tokens.spacingHorizontalXXL,
+    alignItems: 'stretch',
+  },
   heroCard: {
     paddingTop: tokens.spacingVerticalXXL,
     paddingBottom: tokens.spacingVerticalXXL,
@@ -223,43 +358,92 @@ const useStyles = makeStyles({
     borderRadius: tokens.borderRadiusMedium,
     color: tokens.colorNeutralForeground2,
   },
-  branchChip: {
-    display: 'inline-flex',
+
+  // ── Sidecar card ────────────────────────
+  sidecarCard: {
+    paddingTop: tokens.spacingVerticalL,
+    paddingBottom: tokens.spacingVerticalL,
+    paddingLeft: tokens.spacingHorizontalXXL,
+    paddingRight: tokens.spacingHorizontalXXL,
+    backgroundColor: tokens.colorNeutralBackground1,
+    borderRadius: tokens.borderRadiusXLarge,
+    boxShadow: tokens.shadow8,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+  },
+  sidecarHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sidecarTitleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
+  sidecarIcon: {
+    display: 'flex',
+    color: tokens.colorBrandForeground1,
+  },
+  sidecarDescription: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+    lineHeight: tokens.lineHeightBase200,
+  },
+  sidecarTable: {
+    width: '100%',
+    borderCollapse: 'collapse' as const,
+  },
+  sidecarTh: {
+    textAlign: 'left' as const,
+    paddingTop: tokens.spacingVerticalS,
+    paddingBottom: tokens.spacingVerticalS,
+    paddingLeft: tokens.spacingHorizontalS,
+    paddingRight: tokens.spacingHorizontalS,
+    fontSize: tokens.fontSizeBase200,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground3,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
+  },
+  sidecarTd: {
+    paddingTop: tokens.spacingVerticalS,
+    paddingBottom: tokens.spacingVerticalS,
+    paddingLeft: tokens.spacingHorizontalS,
+    paddingRight: tokens.spacingHorizontalS,
+    fontSize: tokens.fontSizeBase200,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke3}`,
+    verticalAlign: 'middle' as const,
+  },
+  sidecarCellMono: {
+    fontFamily: tokens.fontFamilyMonospace,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground2,
+    overflowX: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  sidecarActions: {
+    display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalXXS,
+  },
+  sidecarLogPre: {
     fontFamily: tokens.fontFamilyMonospace,
     fontSize: tokens.fontSizeBase200,
     backgroundColor: tokens.colorNeutralBackground3,
-    paddingTop: tokens.spacingVerticalXXS,
-    paddingBottom: tokens.spacingVerticalXXS,
-    paddingLeft: tokens.spacingHorizontalS,
-    paddingRight: tokens.spacingHorizontalS,
+    padding: tokens.spacingHorizontalM,
     borderRadius: tokens.borderRadiusMedium,
-    color: tokens.colorNeutralForeground2,
+    overflowX: 'auto',
+    maxHeight: '300px',
+    overflowY: 'auto',
+    whiteSpace: 'pre-wrap',
+    lineHeight: tokens.lineHeightBase300,
   },
-  branchIcon: {
-    fontSize: '12px',
+  sidecarEditForm: {
     display: 'flex',
-  },
-  heroProgress: {
-    marginTop: tokens.spacingVerticalM,
-  },
-  progressPulse: {
-    animationName: {
-      from: { opacity: 0.6 },
-      to: { opacity: 1 },
-    },
-    animationDuration: '1.5s',
-    animationIterationCount: 'infinite',
-    animationDirection: 'alternate',
-  },
-  expandHint: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalXS,
-    marginTop: tokens.spacingVerticalS,
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground3,
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
   },
 
   // ── Quick actions ───────────────────────
@@ -269,7 +453,7 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalM,
     flexWrap: 'wrap',
   },
-  // ── Timeline ────────────────────────────
+  // ── Deployments table ──────────────────
   sectionHeader: {
     display: 'flex',
     alignItems: 'center',
@@ -280,115 +464,175 @@ const useStyles = makeStyles({
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorNeutralForeground1,
   },
-  timeline: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalS,
+  deploymentsTableScroll: {
+    maxHeight: '600px',
+    overflowY: 'auto',
   },
-  entry: {
-    display: 'flex',
-    flexDirection: 'column',
-    paddingTop: tokens.spacingVerticalM,
-    paddingBottom: tokens.spacingVerticalM,
-    paddingLeft: tokens.spacingHorizontalL,
-    paddingRight: tokens.spacingHorizontalL,
+  deploymentsTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+  },
+  tableHeader: {
+    position: 'sticky' as const,
+    top: 0,
     backgroundColor: tokens.colorNeutralBackground1,
-    borderRadius: tokens.borderRadiusLarge,
-    borderLeftWidth: '3px',
-    borderLeftStyle: 'solid',
-    borderLeftColor: tokens.colorNeutralStroke1,
+    zIndex: 1,
+  },
+  th: {
+    textAlign: 'left' as const,
+    paddingTop: tokens.spacingVerticalS,
+    paddingBottom: tokens.spacingVerticalS,
+    paddingLeft: tokens.spacingHorizontalM,
+    paddingRight: tokens.spacingHorizontalM,
+    fontSize: tokens.fontSizeBase200,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground3,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
+  },
+  tableRow: {
     cursor: 'pointer',
-    transitionProperty: 'box-shadow',
-    transitionDuration: tokens.durationNormal,
-    boxShadow: tokens.shadow2,
     ':hover': {
-      boxShadow: tokens.shadow4,
+      backgroundColor: tokens.colorNeutralBackground1Hover,
     },
   },
-  borderSuccess: { borderLeftColor: tokens.colorPaletteGreenBorder2 },
-  borderFailed: { borderLeftColor: tokens.colorPaletteRedBorder2 },
-  borderInProgress: { borderLeftColor: tokens.colorPaletteBlueBorderActive },
-  borderPending: { borderLeftColor: tokens.colorPaletteYellowBorder2 },
-  borderCanceled: { borderLeftColor: tokens.colorNeutralStroke1 },
-
-  entryRow: {
+  td: {
+    paddingTop: tokens.spacingVerticalS,
+    paddingBottom: tokens.spacingVerticalS,
+    paddingLeft: tokens.spacingHorizontalM,
+    paddingRight: tokens.spacingHorizontalM,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke3}`,
+    verticalAlign: 'top' as const,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground1,
+  },
+  deploymentCell: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: tokens.spacingVerticalXXS,
+  },
+  deploymentFirstLine: {
     display: 'flex',
     alignItems: 'center',
-    gap: tokens.spacingHorizontalM,
+    gap: tokens.spacingHorizontalS,
   },
-  avatar: {
+  deploymentMessage: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground1,
+  },
+  deploymentAuthor: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  chevronCell: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '32px',
-    height: '32px',
-    borderRadius: tokens.borderRadiusCircular,
+    color: tokens.colorNeutralForeground3,
+  },
+  timeCell: {
+    whiteSpace: 'nowrap' as const,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  durationCell: {
+    whiteSpace: 'nowrap' as const,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  detailDialogSurface: {
+    maxWidth: '800px',
+  },
+  detailContent: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: tokens.spacingVerticalL,
+  },
+  detailMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    flexWrap: 'wrap' as const,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  detailLogsScroll: {
+    height: '400px',
+    overflowY: 'auto' as const,
+  },
+
+  // ── Activity log dialog ────────────────
+  activityDialogSurface: {
+    maxWidth: '960px',
+  },
+  activityTable: {
+    width: '100%',
+    borderCollapse: 'collapse' as const,
+  },
+  activityTh: {
+    textAlign: 'left' as const,
+    paddingTop: tokens.spacingVerticalS,
+    paddingBottom: tokens.spacingVerticalS,
+    paddingLeft: tokens.spacingHorizontalM,
+    paddingRight: tokens.spacingHorizontalM,
     fontSize: tokens.fontSizeBase200,
     fontWeight: tokens.fontWeightSemibold,
-    color: tokens.colorNeutralForegroundOnBrand,
-    flexShrink: 0,
+    color: tokens.colorNeutralForeground3,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
   },
-  avatarBerry: { backgroundColor: tokens.colorPaletteBerryBackground2 },
-  avatarLavender: { backgroundColor: tokens.colorPaletteLavenderBackground2 },
-  avatarMarigold: { backgroundColor: tokens.colorPaletteMarigoldBackground2 },
-  avatarTeal: { backgroundColor: tokens.colorPaletteTealBackground2 },
-  avatarPurple: { backgroundColor: tokens.colorPalettePurpleBackground2 },
-
-  entryBody: {
-    flex: 1,
-    minWidth: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalXXS,
-  },
-  entryMessage: {
-    fontSize: tokens.fontSizeBase300,
-    fontWeight: tokens.fontWeightMedium,
-    color: tokens.colorNeutralForeground1,
-    overflowX: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  entryMeta: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
+  activityTd: {
+    paddingTop: tokens.spacingVerticalS,
+    paddingBottom: tokens.spacingVerticalS,
+    paddingLeft: tokens.spacingHorizontalM,
+    paddingRight: tokens.spacingHorizontalM,
     fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground3,
+    color: tokens.colorNeutralForeground1,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke3}`,
+    whiteSpace: 'nowrap' as const,
   },
-  entryRight: {
+  activityOperationCell: {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalS,
-    flexShrink: 0,
-  },
-  expandIcon: {
-    display: 'flex',
-    color: tokens.colorNeutralForeground3,
-    transitionProperty: 'transform',
-    transitionDuration: tokens.durationNormal,
-  },
-  expandIconOpen: {
-    transform: 'rotate(90deg)',
   },
 
-  // ── Credentials ─────────────────────────
-  credSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalM,
+  // ── FTPS credentials dialog ─────────────
+  ftpsDialogSurface: {
+    maxWidth: '680px',
   },
-  credContent: {
+  ftpsContent: {
     display: 'flex',
     flexDirection: 'column',
-    gap: tokens.spacingVerticalM,
-    paddingTop: tokens.spacingVerticalM,
-    paddingBottom: tokens.spacingVerticalM,
-    paddingLeft: tokens.spacingHorizontalL,
-    paddingRight: tokens.spacingHorizontalL,
-    backgroundColor: tokens.colorNeutralBackground1,
-    borderRadius: tokens.borderRadiusLarge,
-    boxShadow: tokens.shadow2,
+    gap: tokens.spacingVerticalL,
+  },
+  ftpsDescription: {
+    color: tokens.colorNeutralForeground2,
+    fontSize: tokens.fontSizeBase300,
+    lineHeight: tokens.lineHeightBase300,
+  },
+  ftpsEndpointRow: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXS,
+  },
+  ftpsSectionHeading: {
+    fontWeight: tokens.fontWeightSemibold,
+    fontSize: tokens.fontSizeBase400,
+    color: tokens.colorNeutralForeground1,
+  },
+  ftpsSectionDescription: {
+    color: tokens.colorNeutralForeground3,
+    fontSize: tokens.fontSizeBase200,
+    lineHeight: tokens.lineHeightBase300,
+  },
+  ftpsFieldRow: {
+    display: 'grid',
+    gridTemplateColumns: '140px 1fr auto',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+  },
+  ftpsFieldLabel: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground2,
   },
   credField: {
     display: 'flex',
@@ -396,7 +640,7 @@ const useStyles = makeStyles({
     gap: tokens.spacingVerticalXS,
   },
 
-  // ── Setup dialog ────────────────────────
+  // ── Setup dialog────────────────────────
   dialogSurface: {
     maxWidth: '680px',
   },
@@ -475,31 +719,6 @@ const useStyles = makeStyles({
     paddingBottom: tokens.spacingVerticalM,
     borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
   },
-  slotDropdown: {
-    minWidth: '280px',
-  },
-  slotOptionContent: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-  },
-  slotOptionDot: {
-    display: 'inline-block',
-    width: '8px',
-    height: '8px',
-    borderRadius: tokens.borderRadiusCircular,
-    flexShrink: 0,
-  },
-  slotOptionDotRunning: {
-    backgroundColor: tokens.colorPaletteGreenBackground3,
-  },
-  slotOptionDotStopped: {
-    backgroundColor: tokens.colorPaletteRedBackground3,
-  },
-  slotOptionTraffic: {
-    color: tokens.colorNeutralForeground3,
-    fontSize: tokens.fontSizeBase200,
-  },
 
   // ── Manage slots dialog ────────────────
   manageSlotsDialogSurface: {
@@ -517,16 +736,12 @@ const useStyles = makeStyles({
   },
   manageTrafficSlotInfo: {
     display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-    minWidth: '160px',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXXS,
+    minWidth: '200px',
   },
   manageTrafficSpinButton: {
     width: '100px',
-  },
-  manageTrafficProgressBar: {
-    flexGrow: 1,
-    minWidth: '100px',
   },
 });
 
@@ -535,18 +750,26 @@ const useStyles = makeStyles({
 export const BoldDeployments = () => {
   const styles = useStyles();
 
-  const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [showSetup, setShowSetup] = useState(false);
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [deployDialogOpen, setDeployDialogOpen] = useState(false);
+  const [addSlotDialogOpen, setAddSlotDialogOpen] = useState(false);
+  const [newSlotName, setNewSlotName] = useState('');
+  const [cloneFrom, setCloneFrom] = useState('Do not clone settings');
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [selectedSource, setSelectedSource] = useState<DeploymentSourceType | null>(null);
   const [selectedOrg, setSelectedOrg] = useState('');
   const [selectedRepo, setSelectedRepo] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
-  const [showCredentials, setShowCredentials] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState('production');
+  const [ftpsDialogOpen, setFtpsDialogOpen] = useState(false);
+  const [sidecarLogDialog, setSidecarLogDialog] = useState<string | null>(null);
+  const [sidecarEditDialog, setSidecarEditDialog] = useState<string | null>(null);
+  const [deploymentDetailId, setDeploymentDetailId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(3);
+  const { selectedSlot } = useSlot();
   const [slotSwapDialogOpen, setSlotSwapDialogOpen] = useState(false);
   const [manageSlotsDialogOpen, setManageSlotsDialogOpen] = useState(false);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
   const currentSlotUrl = deploymentSlots.find(s => s.name === selectedSlot)?.url ?? '';
   const [traffic, setTraffic] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
@@ -563,32 +786,7 @@ export const BoldDeployments = () => {
   const latestDeployment = filteredDeployments[0];
   const recentDeployments = filteredDeployments.slice(1);
 
-  const toggleExpanded = (id: string) => {
-    setExpandedIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
-    );
-  };
-
-  const statusBorderMap: Record<DeploymentStatus, string> = {
-    Success: styles.borderSuccess,
-    Failed: styles.borderFailed,
-    InProgress: styles.borderInProgress,
-    Pending: styles.borderPending,
-    Canceled: styles.borderCanceled,
-  };
-
-  const avatarClasses = [
-    styles.avatarBerry,
-    styles.avatarLavender,
-    styles.avatarMarigold,
-    styles.avatarTeal,
-    styles.avatarPurple,
-  ];
-
-  const getAvatarColor = (name: string) =>
-    avatarClasses[name.charCodeAt(0) % avatarClasses.length];
-
-  const handleDisconnect = () => {
+  const handleDisconnect= () => {
     setDisconnectDialogOpen(true);
   };
 
@@ -627,33 +825,6 @@ export const BoldDeployments = () => {
     <div className={styles.root}>
       {/* ── Slot selector ──────────────────────────────────── */}
       <div className={styles.slotSelectorBar}>
-        <Dropdown
-          className={styles.slotDropdown}
-          value={`${selectedSlot} — ${traffic[selectedSlot]}% traffic`}
-          selectedOptions={[selectedSlot]}
-          onOptionSelect={(_, data) => {
-            if (data.optionValue) setSelectedSlot(data.optionValue);
-          }}
-        >
-          {deploymentSlots.map((slot) => (
-            <Option key={slot.name} value={slot.name} text={slot.name}>
-              <div className={styles.slotOptionContent}>
-                <span
-                  className={mergeClasses(
-                    styles.slotOptionDot,
-                    slot.status === 'Running' ? styles.slotOptionDotRunning : styles.slotOptionDotStopped,
-                  )}
-                />
-                <Text weight="semibold">{slot.name}</Text>
-                {slot.isProduction && (
-                  <Badge size="small" color="brand" appearance="tint">prod</Badge>
-                )}
-                <Text className={styles.slotOptionTraffic}>— {traffic[slot.name]}% traffic</Text>
-              </div>
-            </Option>
-          ))}
-        </Dropdown>
-
         <Button
           appearance="subtle"
           icon={<ArrowSwap24Regular />}
@@ -662,16 +833,48 @@ export const BoldDeployments = () => {
           Swap
         </Button>
 
+        <Menu>
+          <MenuTrigger disableButtonEnhancement>
+            <MenuButton appearance="subtle" icon={<LayerDiagonal24Regular />}>
+              Manage slots
+            </MenuButton>
+          </MenuTrigger>
+          <MenuPopover>
+            <MenuList>
+              <MenuItem
+                icon={<Add24Regular />}
+                onClick={() => {
+                  setNewSlotName('');
+                  setCloneFrom('Do not clone settings');
+                  setAddSlotDialogOpen(true);
+                }}
+              >
+                Add slot
+              </MenuItem>
+              <MenuItem
+                icon={<ArrowSwap24Regular />}
+                onClick={() => setManageSlotsDialogOpen(true)}
+              >
+                Adjust traffic
+              </MenuItem>
+            </MenuList>
+          </MenuPopover>
+        </Menu>
+
         <Button
           appearance="subtle"
-          icon={<LayerDiagonal24Regular />}
-          onClick={() => setManageSlotsDialogOpen(true)}
+          icon={<DocumentText24Regular />}
+          onClick={() => setActivityLogOpen(true)}
         >
-          Manage slots
+          Activity log
         </Button>
 
-        <Button appearance="subtle" icon={<DocumentText24Regular />}>
-          Activity log
+        <Button
+          appearance="subtle"
+          icon={<Eye24Regular />}
+          onClick={() => setFtpsDialogOpen(true)}
+        >
+          FTPS credentials
         </Button>
       </div>
 
@@ -686,16 +889,45 @@ export const BoldDeployments = () => {
       <Dialog open={manageSlotsDialogOpen} onOpenChange={(_, data) => setManageSlotsDialogOpen(data.open)}>
         <DialogSurface className={styles.manageSlotsDialogSurface}>
           <DialogBody>
-            <DialogTitle>Manage deployment slots</DialogTitle>
+            <DialogTitle>Traffic distribution</DialogTitle>
             <DialogContent className={styles.manageDialogContent}>
-              <Text weight="semibold">Traffic routing</Text>
-              <Divider />
+              {/* Live traffic bar */}
+              <div className={styles.trafficBar}>
+                {deploymentSlots
+                  .filter(s => traffic[s.name] > 0)
+                  .map((slot) => (
+                  <div
+                    key={slot.name}
+                    className={styles.trafficBarChunk}
+                    style={{
+                      width: `${traffic[slot.name]}%`,
+                      backgroundColor: slot.isProduction ? tokens.colorBrandBackground : tokens.colorPalettePurpleBackground2,
+                    }}
+                  >
+                    {traffic[slot.name] >= 15 && `${slot.name} ${traffic[slot.name]}%`}
+                  </div>
+                ))}
+              </div>
+
               {deploymentSlots.map((slot) => (
                 <div key={slot.name} className={styles.manageTrafficRow}>
                   <div className={styles.manageTrafficSlotInfo}>
-                    <Subtitle2>{slot.name}</Subtitle2>
-                    {slot.isProduction && (
-                      <Badge size="small" color="brand" appearance="tint">prod</Badge>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS }}>
+                      <Subtitle2>{slot.name}</Subtitle2>
+                      {slot.isProduction && (
+                        <Badge size="small" color="brand" appearance="tint">PRODUCTION</Badge>
+                      )}
+                    </div>
+                    {slot.lastDeployment && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS }}>
+                        <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                          {slot.lastDeployment.commitId?.slice(0, 7)}{' '}
+                          {(slot.lastDeployment.commitMessage ?? slot.lastDeployment.message).length > 40
+                            ? `${(slot.lastDeployment.commitMessage ?? slot.lastDeployment.message).slice(0, 40)}\u2026`
+                            : (slot.lastDeployment.commitMessage ?? slot.lastDeployment.message)}
+                        </Text>
+                        <StatusBadge status={slot.lastDeployment.status} />
+                      </div>
                     )}
                   </div>
                   <SpinButton
@@ -708,20 +940,122 @@ export const BoldDeployments = () => {
                       if (data.value != null) handleTrafficChange(slot.name, data.value);
                     }}
                   />
-                  <ProgressBar
-                    className={styles.manageTrafficProgressBar}
-                    value={traffic[slot.name] / 100}
-                    thickness="large"
-                    shape="rounded"
-                  />
                 </div>
               ))}
-              <Divider />
-              <Button appearance="outline" icon={<LayerDiagonal24Regular />}>Add slot</Button>
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setManageSlotsDialogOpen(false)}>Close</Button>
               <Button appearance="primary" onClick={() => setManageSlotsDialogOpen(false)}>Save</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      {/* ── Add slot dialog ────────────────────────────────── */}
+      <Dialog open={addSlotDialogOpen} onOpenChange={(_, data) => { if (!data.open) setAddSlotDialogOpen(false); }}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Add slot</DialogTitle>
+            <DialogContent className={styles.detailContent}>
+              <div className={styles.credField}>
+                <Label htmlFor="slot-name">Name</Label>
+                <Input
+                  id="slot-name"
+                  value={newSlotName}
+                  onChange={(_, data) => setNewSlotName(data.value)}
+                  placeholder="Enter slot name"
+                />
+                {newSlotName === '' && (
+                  <Text size={200} style={{ color: tokens.colorPaletteRedForeground1 }}>
+                    The value must not be empty.
+                  </Text>
+                )}
+              </div>
+              <div className={styles.credField}>
+                <Label>Clone settings from:</Label>
+                <Dropdown
+                  value={cloneFrom}
+                  selectedOptions={[cloneFrom]}
+                  onOptionSelect={(_, data) => { if (data.optionValue) setCloneFrom(data.optionValue); }}
+                >
+                  <Option value="Do not clone settings">Do not clone settings</Option>
+                  <Option value={webApp.name}>{webApp.name}</Option>
+                  {deploymentSlots.filter(s => !s.isProduction).map(s => (
+                    <Option key={s.name} value={`${webApp.name}-${s.name}`}>{webApp.name}-{s.name}</Option>
+                  ))}
+                </Dropdown>
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                appearance="primary"
+                disabled={newSlotName === ''}
+                onClick={() => setAddSlotDialogOpen(false)}
+              >
+                Add
+              </Button>
+              <Button onClick={() => setAddSlotDialogOpen(false)}>Close</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      {/* ── Activity log dialog ────────────────────────────── */}
+      <Dialog open={activityLogOpen} onOpenChange={(_, data) => setActivityLogOpen(data.open)}>
+        <DialogSurface className={styles.activityDialogSurface}>
+          <DialogBody>
+            <DialogTitle>Activity log</DialogTitle>
+            <DialogContent>
+              <table className={styles.activityTable}>
+                <thead>
+                  <tr>
+                    <th className={styles.activityTh}>Operation name</th>
+                    <th className={styles.activityTh}>Status</th>
+                    <th className={styles.activityTh}>Time</th>
+                    <th className={styles.activityTh}>Time stamp</th>
+                    <th className={styles.activityTh}>Subscription</th>
+                    <th className={styles.activityTh}>Event initiated by</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activityLogs.map((log, i) => (
+                    <tr key={i}>
+                      <td className={styles.activityTd}>
+                        <div className={styles.activityOperationCell}>
+                          <Info16Regular color={tokens.colorBrandForeground1} />
+                          <Text size={200}>{log.operation}</Text>
+                        </div>
+                      </td>
+                      <td className={styles.activityTd}>{log.status}</td>
+                      <td className={styles.activityTd}>{log.time}</td>
+                      <td className={styles.activityTd}>{log.timestamp}</td>
+                      <td className={styles.activityTd}>
+                        <Link href="#" onClick={(e) => e.preventDefault()}>{webApp.subscriptionName}</Link>
+                      </td>
+                      <td className={styles.activityTd}>{log.initiatedBy}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="primary" onClick={() => setActivityLogOpen(false)}>Close</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      {/* ── Deploy confirmation dialog ──────────────────────── */}
+      <Dialog open={deployDialogOpen} onOpenChange={(_, data) => setDeployDialogOpen(data.open)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Start deployment?</DialogTitle>
+            <DialogContent>
+              <Text>This will cancel any deployment currently in progress.</Text>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDeployDialogOpen(false)}>Cancel</Button>
+              <Button appearance="primary" onClick={() => setDeployDialogOpen(false)}>Deploy</Button>
             </DialogActions>
           </DialogBody>
         </DialogSurface>
@@ -748,22 +1082,36 @@ export const BoldDeployments = () => {
         </DialogSurface>
       </Dialog>
 
-      {/* ── Source card / disconnected state ────────────────── */}
-      {isDisconnected ? (
-        <div className={styles.sourceCard} style={{ justifyContent: 'center' }}>
+      {/* ── Top row: Source card + Slots overview ──────────── */}
+      <div className={styles.topRow}>
+        {/* ── Source card / disconnected state ────────────────── */}
+        {isDisconnected ? (
+        <div className={styles.sourceCard}>
+        <div className={styles.sourceLeft}>
+          <div className={styles.sourceIcon}>
+            <Settings24Regular />
+          </div>
+          <div className={styles.sourceDetails}>
+            <Text className={styles.sourceRepo}>No deployment source</Text>
+            <Text style={{ fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3 }}>
+              You do not currently have a deployment source configured.
+            </Text>
+          </div>
+        </div>
+        <div className={styles.sourceActions}>
           <Button
             appearance="primary"
             icon={<Settings24Regular />}
-            size="large"
             onClick={() => {
               setShowSetup(true);
               setSelectedSource(null);
               setIsDisconnected(false);
             }}
           >
-            Choose deployment source
+            Choose source
           </Button>
         </div>
+      </div>
       ) : (
       <div className={styles.sourceCard}>
         <div className={styles.sourceLeft}>
@@ -789,37 +1137,81 @@ export const BoldDeployments = () => {
           </div>
         </div>
         <div className={styles.sourceActions}>
-          <Button appearance="primary" icon={<Rocket24Regular />} size="small">
+          <Button appearance="primary" icon={<Rocket24Regular />} onClick={() => setDeployDialogOpen(true)}>
             Deploy
           </Button>
-          <Tooltip content="Disconnect deployment source" relationship="description">
-            <Button
-              appearance="subtle"
-              className={styles.disconnectBtn}
-              onClick={handleDisconnect}
-              size="small"
-            >
-              Disconnect
-            </Button>
-          </Tooltip>
+          <Button
+            appearance="primary"
+            className={styles.disconnectBtn}
+            onClick={handleDisconnect}
+          >
+            Disconnect
+          </Button>
         </div>
       </div>
       )}
 
-      {/* ── Latest deployment hero ─────────────────────────── */}
-      {latestDeployment && (
-        <div
-          className={styles.heroCard}
-          onClick={() => toggleExpanded(latestDeployment.id)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={e => {
-            if (e.key === 'Enter' || e.key === ' ') toggleExpanded(latestDeployment.id);
-          }}
-        >
-          <div className={styles.heroTop}>
-            <div className={styles.heroBody}>
-              <Text className={styles.heroLabel}>Latest Deployment</Text>
+        {/* ── Slots overview card ──────────────────────────────── */}
+        <div className={styles.slotsOverviewCard}>
+          <div className={styles.slotsOverviewHeader}>
+            <LayerDiagonal24Regular />
+            <Text weight="semibold" size={400}>Slots overview</Text>
+          </div>
+
+          {/* Traffic bar */}
+          <div className={styles.trafficBar}>
+            {deploymentSlots
+              .filter(s => traffic[s.name] > 0)
+              .map((slot, i) => (
+              <div
+                key={slot.name}
+                className={styles.trafficBarChunk}
+                style={{
+                  width: `${traffic[slot.name]}%`,
+                  backgroundColor: slot.isProduction ? tokens.colorBrandBackground : tokens.colorPalettePurpleBackground2,
+                }}
+              >
+                {traffic[slot.name] >= 15 && `${slot.name} ${traffic[slot.name]}%`}
+              </div>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div className={styles.slotsLegend}>
+            {deploymentSlots.map(slot => (
+              <div key={slot.name} className={styles.slotListItem}>
+                <span
+                  className={mergeClasses(
+                    styles.statusDotSmall,
+                    slot.status === 'Running' ? styles.statusDotRunning : styles.statusDotStopped,
+                  )}
+                />
+                <Text size={200} weight="semibold">{slot.name}</Text>
+                <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                  {traffic[slot.name]}%
+                </Text>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Hero row: Latest deployment + Sidecar containers ── */}
+      <div className={styles.heroRow}>
+        {/* ── Latest deployment hero ─────────────────────────── */}
+        {latestDeployment && (
+          <div
+            className={styles.heroCard}
+            onClick={() => setDeploymentDetailId(latestDeployment.id)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') setDeploymentDetailId(latestDeployment.id);
+            }}
+          >
+            <div className={styles.heroTop}>
+              <div className={styles.heroBody}>
+                <Text className={styles.heroLabel}>Latest Deployment</Text>
               <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS }}>
                 {latestDeployment.commitId && (
                   <Tooltip content={`Commit ${latestDeployment.commitId}`} relationship="description">
@@ -827,6 +1219,7 @@ export const BoldDeployments = () => {
                       href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${latestDeployment.commitId}`}
                       target="_blank"
                       className={styles.commitHash}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {latestDeployment.commitId.slice(0, 7)}
                     </Link>
@@ -839,6 +1232,7 @@ export const BoldDeployments = () => {
                   target="_blank"
                   appearance="subtle"
                   className={styles.heroMessage}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {latestDeployment.commitMessage ?? latestDeployment.message}
                 </Link>
@@ -854,189 +1248,441 @@ export const BoldDeployments = () => {
                 {latestDeployment.durationSeconds != null && (
                   <>
                     <span className={styles.dot} />
-                    <span>took {formatDuration(latestDeployment.durationSeconds)}</span>
+                    <span>{formatDuration(latestDeployment.durationSeconds)}</span>
                   </>
-                )}
-                {latestDeployment.branch && (
-                  <Link
-                    href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/tree/${latestDeployment.branch}`}
-                    target="_blank"
-                    className={styles.branchChip}
-                  >
-                    <span className={styles.branchIcon}><BranchFork24Regular /></span>
-                    {latestDeployment.branch}
-                  </Link>
                 )}
               </div>
               {latestDeployment.phases && (
                 <DeploymentPhasePills phases={latestDeployment.phases} />
               )}
             </div>
-            <span
-              className={mergeClasses(
-                styles.expandIcon,
-                expandedIds.includes(latestDeployment.id) && styles.expandIconOpen,
-              )}
-            >
+            <span className={styles.chevronCell}>
               <ChevronRight24Regular />
             </span>
           </div>
-
-          {latestDeployment.status === 'InProgress' && (
-            <div className={mergeClasses(styles.heroProgress, styles.progressPulse)}>
-              <ProgressBar />
-            </div>
-          )}
-
-          {!expandedIds.includes(latestDeployment.id) && (
-            <div className={styles.expandHint}>
-              <ChevronRight24Regular fontSize={12} />
-              <span>Click to view build logs</span>
-            </div>
-          )}
-
-          {expandedIds.includes(latestDeployment.id) && latestDeployment.buildLogs && (
-            <StreamingLogViewer
-              logs={latestDeployment.buildLogs}
-              isStreaming={latestDeployment.status === 'InProgress'}
-            />
-          )}
         </div>
-      )}
+        )}
+
+        {/* ── Sidecar containers card ─────────────────────────── */}
+        <div className={styles.sidecarCard}>
+          <div className={styles.sidecarHeader}>
+            <div className={styles.sidecarTitleRow}>
+              <span className={styles.sidecarIcon}><Box24Regular /></span>
+              <Text weight="semibold" size={400}>Sidecar containers</Text>
+              <Badge appearance="tint" color="informative" size="small">
+                {sidecarContainers.length}
+              </Badge>
+            </div>
+            <Button appearance="primary" size="small" icon={<Add24Regular />}>
+              Add
+            </Button>
+          </div>
+
+          <Text className={styles.sidecarDescription}>
+            Enhance site functionality by adding sidecar containers.{' '}
+            <Link href="https://learn.microsoft.com/azure/app-service/tutorial-custom-container-sidecar" target="_blank">
+              Learn more
+            </Link>
+          </Text>
+
+          <Divider />
+
+          <table className={styles.sidecarTable}>
+            <thead>
+              <tr>
+                <th className={styles.sidecarTh}>Name</th>
+                <th className={styles.sidecarTh}>Port</th>
+                <th className={styles.sidecarTh}>Image</th>
+                <th className={styles.sidecarTh}>Tag</th>
+                <th className={styles.sidecarTh} />
+              </tr>
+            </thead>
+            <tbody>
+              {sidecarContainers.map((sc) => (
+                <tr key={sc.name}>
+                  <td className={styles.sidecarTd}>
+                    <Link
+                      href="#"
+                      className={styles.sidecarCellMono}
+                      onClick={(e) => { e.preventDefault(); setSidecarEditDialog(sc.name); }}
+                    >
+                      {sc.name}
+                    </Link>
+                  </td>
+                  <td className={styles.sidecarTd}>{sc.port}</td>
+                  <td className={styles.sidecarTd}>
+                    <Text className={styles.sidecarCellMono} title={sc.image}>{sc.image}</Text>
+                  </td>
+                  <td className={styles.sidecarTd}>
+                    <Text className={styles.sidecarCellMono} title={sc.tag}>{sc.tag}</Text>
+                  </td>
+                  <td className={styles.sidecarTd}>
+                    <div className={styles.sidecarActions}>
+                      <Tooltip content="View logs" relationship="label">
+                        <Button
+                          appearance="subtle"
+                          icon={<TextDescription24Regular />}
+                          size="small"
+                          onClick={() => setSidecarLogDialog(sc.name)}
+                        />
+                      </Tooltip>
+                      <Tooltip content="Delete container" relationship="label">
+                        <Button
+                          appearance="subtle"
+                          icon={<Delete24Regular />}
+                          size="small"
+                        />
+                      </Tooltip>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Sidecar logs dialog ──────────────────────────────── */}
+        <Dialog open={sidecarLogDialog !== null} onOpenChange={(_, data) => { if (!data.open) setSidecarLogDialog(null); }}>
+          <DialogSurface>
+            <DialogBody>
+              <DialogTitle>Logs — {sidecarLogDialog}</DialogTitle>
+              <DialogContent>
+                <pre className={styles.sidecarLogPre}>
+{`[2026-03-26T14:22:01Z] Starting container ${sidecarLogDialog ?? ''}...
+[2026-03-26T14:22:02Z] Pulling image from registry...
+[2026-03-26T14:22:05Z] Image pulled successfully.
+[2026-03-26T14:22:06Z] Container ${sidecarLogDialog ?? ''} started on port ${sidecarContainers.find(s => s.name === sidecarLogDialog)?.port ?? '?'}.
+[2026-03-26T14:22:06Z] Health check passed.
+[2026-03-26T14:22:10Z] Listening for incoming requests...
+[2026-03-26T14:23:44Z] GET /health 200 2ms
+[2026-03-26T14:25:12Z] POST /collect 200 14ms
+[2026-03-26T14:27:33Z] GET /health 200 1ms`}
+                </pre>
+              </DialogContent>
+              <DialogActions>
+                <Button appearance="primary" onClick={() => setSidecarLogDialog(null)}>Close</Button>
+              </DialogActions>
+            </DialogBody>
+          </DialogSurface>
+        </Dialog>
+
+        {/* ── Sidecar edit dialog ──────────────────────────────── */}
+        <Dialog open={sidecarEditDialog !== null} onOpenChange={(_, data) => { if (!data.open) setSidecarEditDialog(null); }}>
+          <DialogSurface>
+            <DialogBody>
+              <DialogTitle>Edit container — {sidecarEditDialog}</DialogTitle>
+              <DialogContent className={styles.sidecarEditForm}>
+                {(() => {
+                  const sc = sidecarContainers.find(s => s.name === sidecarEditDialog);
+                  if (!sc) return null;
+                  return (
+                    <>
+                      <div className={styles.credField}>
+                        <Label>Name</Label>
+                        <Input defaultValue={sc.name} />
+                      </div>
+                      <div className={styles.credField}>
+                        <Label>Image source</Label>
+                        <Input defaultValue={sc.source} readOnly />
+                      </div>
+                      <div className={styles.credField}>
+                        <Label>Image</Label>
+                        <Input defaultValue={sc.image} />
+                      </div>
+                      <div className={styles.credField}>
+                        <Label>Tag</Label>
+                        <Input defaultValue={sc.tag} />
+                      </div>
+                      <div className={styles.credField}>
+                        <Label>Port</Label>
+                        <Input defaultValue={String(sc.port)} />
+                      </div>
+                    </>
+                  );
+                })()}
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setSidecarEditDialog(null)}>Cancel</Button>
+                <Button appearance="primary" onClick={() => setSidecarEditDialog(null)}>Save</Button>
+              </DialogActions>
+            </DialogBody>
+          </DialogSurface>
+        </Dialog>
+      </div>
 
       <Divider />
 
       {/* ── Recent deployments ─────────────────────────────── */}
       <div className={styles.sectionHeader}>
-        <Text className={styles.sectionTitle}>Recent Deployments</Text>
+        <Text className={styles.sectionTitle}>Recent deployments</Text>
         <Badge appearance="tint" color="informative" size="small">
           {recentDeployments.length}
         </Badge>
       </div>
 
-      <div className={styles.timeline}>
-        {recentDeployments.map(entry => {
-          const isExpanded = expandedIds.includes(entry.id);
-          const displayMsg = entry.commitMessage ?? entry.message;
-          const truncatedMsg =
-            displayMsg.length > 60 ? `${displayMsg.slice(0, 60)}\u2026` : displayMsg;
-
-          return (
-            <div
-              key={entry.id}
-              className={mergeClasses(styles.entry, statusBorderMap[entry.status])}
-              onClick={() => toggleExpanded(entry.id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') toggleExpanded(entry.id);
-              }}
-            >
-              <div className={styles.entryRow}>
-                <div className={mergeClasses(styles.avatar, getAvatarColor(entry.author))}>
-                  {entry.author.charAt(0).toUpperCase()}
-                </div>
-
-                <div className={styles.entryBody}>
-                  <Text className={styles.entryMessage} title={displayMsg}>
-                    {truncatedMsg}
-                  </Text>
-                  <div className={styles.entryMeta}>
-                    <span>{entry.author}</span>
-                    <span className={styles.dot} />
-                    <Tooltip content={entry.timestamp} relationship="description">
-                      <span>Deployed {formatRelativeTime(entry.timestamp)}</span>
-                    </Tooltip>
-                    {entry.durationSeconds != null && (
-                      <>
-                        <span className={styles.dot} />
-                        <span>took {formatDuration(entry.durationSeconds)}</span>
-                      </>
-                    )}
-                    {entry.commitId && (
-                      <Tooltip content={`Commit ${entry.commitId}`} relationship="description">
+      <div className={styles.deploymentsTableScroll}>
+        <table className={styles.deploymentsTable}>
+          <thead className={styles.tableHeader}>
+            <tr>
+              <th className={styles.th}>Status</th>
+              <th className={styles.th}>Deployment</th>
+              <th className={styles.th}>Time</th>
+              <th className={styles.th}>Duration</th>
+              <th className={styles.th} />
+            </tr>
+          </thead>
+          <tbody>
+            {recentDeployments.slice(0, visibleCount).map(entry => (
+              <tr
+                key={entry.id}
+                className={styles.tableRow}
+                onClick={() => setDeploymentDetailId(entry.id)}
+              >
+                <td className={styles.td}>
+                  <StatusBadge status={entry.status} />
+                </td>
+                <td className={styles.td}>
+                  <div className={styles.deploymentCell}>
+                    <div className={styles.deploymentFirstLine}>
+                      {entry.commitId && (
                         <Link
                           href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${entry.commitId}`}
                           target="_blank"
                           className={styles.commitHash}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           {entry.commitId.slice(0, 7)}
                         </Link>
-                      </Tooltip>
-                    )}
-                    {entry.branch && (
-                      <Link
-                        href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/tree/${entry.branch}`}
-                        target="_blank"
-                        className={styles.branchChip}
-                      >
-                        <span className={styles.branchIcon}><BranchFork24Regular /></span>
-                        {entry.branch}
-                      </Link>
+                      )}
+                      <Text className={styles.deploymentMessage}>
+                        {(entry.commitMessage ?? entry.message).length > 72
+                          ? `${(entry.commitMessage ?? entry.message).slice(0, 72)}\u2026`
+                          : (entry.commitMessage ?? entry.message)}
+                      </Text>
+                      <Text className={styles.deploymentAuthor}>by {entry.author}</Text>
+                    </div>
+                    {entry.phases && (
+                      <DeploymentPhasePills phases={entry.phases} />
                     )}
                   </div>
-                  {entry.phases && (
-                    <DeploymentPhasePills phases={entry.phases} />
-                  )}
-                </div>
-
-                <div className={styles.entryRight}>
-                  <StatusBadge status={entry.status} />
-                  <span
-                    className={mergeClasses(
-                      styles.expandIcon,
-                      isExpanded && styles.expandIconOpen,
-                    )}
-                  >
+                </td>
+                <td className={mergeClasses(styles.td, styles.timeCell)}>
+                  <Tooltip content={entry.timestamp} relationship="description">
+                    <span>{formatRelativeTime(entry.timestamp)}</span>
+                  </Tooltip>
+                </td>
+                <td className={mergeClasses(styles.td, styles.durationCell)}>
+                  {entry.durationSeconds != null
+                    ? formatDuration(entry.durationSeconds)
+                    : '—'}
+                </td>
+                <td className={styles.td}>
+                  <span className={styles.chevronCell}>
                     <ChevronRight24Regular />
                   </span>
-                </div>
-              </div>
-
-              {isExpanded && entry.buildLogs && (
-                <StreamingLogViewer
-                  logs={entry.buildLogs}
-                  isStreaming={entry.status === 'InProgress'}
-                />
-              )}
-            </div>
-          );
-        })}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <Divider />
-
-      {/* ── Legacy credentials ─────────────────────────────── */}
-      <div className={styles.credSection}>
+      {visibleCount < recentDeployments.length && (
         <Button
           appearance="subtle"
-          icon={showCredentials ? <EyeOff24Regular /> : <Eye24Regular />}
-          onClick={() => setShowCredentials(prev => !prev)}
+          onClick={() => setVisibleCount(prev => prev + 5)}
         >
-          {showCredentials ? 'Hide' : 'Show'} legacy credentials
+          Load more ({recentDeployments.length - visibleCount} remaining)
         </Button>
+      )}
 
-        {showCredentials && (
-          <div className={styles.credContent}>
-            <div className={styles.credField}>
-              <Label htmlFor="ftps-endpoint">FTPS Endpoint</Label>
-              <Input
-                id="ftps-endpoint"
-                value="ftps://waws-prod-bay-001.ftp.azurewebsites.windows.net"
-                readOnly
-              />
-            </div>
-            <div className={styles.credField}>
-              <Label htmlFor="ftps-user">Username</Label>
-              <Input id="ftps-user" value="my-node-app\$my-node-app" readOnly />
-            </div>
-            <div className={styles.credField}>
-              <Label htmlFor="ftps-pass">Password</Label>
-              <Input id="ftps-pass" type="password" value="a1b2c3d4e5f6g7h8i9j0" readOnly />
-            </div>
-          </div>
-        )}
-      </div>
+      {/* ── Deployment detail dialog ───────────────────────── */}
+      <Dialog
+        open={deploymentDetailId !== null}
+        onOpenChange={(_, data) => { if (!data.open) setDeploymentDetailId(null); }}
+      >
+        <DialogSurface className={styles.detailDialogSurface}>
+          <DialogBody>
+            {(() => {
+              const detail = filteredDeployments.find(d => d.id === deploymentDetailId);
+              if (!detail) return null;
+              return (
+                <>
+                  <DialogTitle>
+                    {detail.commitMessage ?? detail.message}
+                  </DialogTitle>
+                  <DialogContent className={styles.detailContent}>
+                    <div className={styles.detailMeta}>
+                      <StatusBadge status={detail.status} />
+                      <span>{detail.author}</span>
+                      {detail.commitId && (
+                        <Link
+                          href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${detail.commitId}`}
+                          target="_blank"
+                          className={styles.commitHash}
+                        >
+                          {detail.commitId.slice(0, 7)}
+                        </Link>
+                      )}
+                      <Tooltip content={detail.timestamp} relationship="description">
+                        <span>{formatRelativeTime(detail.timestamp)}</span>
+                      </Tooltip>
+                      {detail.durationSeconds != null && (
+                        <span>{formatDuration(detail.durationSeconds)}</span>
+                      )}
+                    </div>
+                    {detail.phases && (
+                      <>
+                        <Text weight="semibold">Steps</Text>
+                        <DeploymentPhasePills phases={detail.phases} />
+                      </>
+                    )}
+                    {detail.deploymentLogs ? (
+                      <>
+                        <Text weight="semibold">Log details</Text>
+                        <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                          Deployment ID: {detail.id}
+                        </Text>
+                        <DeploymentLogTable logs={detail.deploymentLogs} deploymentId={detail.id} />
+                      </>
+                    ) : detail.buildLogs ? (
+                      <>
+                        <Text weight="semibold">Logs</Text>
+                        <div className={styles.detailLogsScroll}>
+                          <StreamingLogViewer
+                            logs={detail.buildLogs}
+                            isStreaming={detail.status === 'InProgress'}
+                          />
+                        </div>
+                      </>
+                    ) : null}
+                  </DialogContent>
+                  <DialogActions>
+                    <Button appearance="primary" onClick={() => setDeploymentDetailId(null)}>
+                      Close
+                    </Button>
+                  </DialogActions>
+                </>
+              );
+            })()}
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      {/* ── FTPS credentials dialog────────────────────────── */}
+      <Dialog open={ftpsDialogOpen} onOpenChange={(_, data) => setFtpsDialogOpen(data.open)}>
+        <DialogSurface className={styles.ftpsDialogSurface}>
+          <DialogBody>
+            <DialogTitle>FTPS credentials</DialogTitle>
+            <DialogContent className={styles.ftpsContent}>
+              {/* Warning banner */}
+              {!ftpsCredentials.isEnabled && (
+                <MessageBar intent="warning">
+                  <MessageBarBody>
+                    <MessageBarTitle>FTP authentication is disabled</MessageBarTitle>
+                    FTP authentication has been disabled for this web app. You will not be able to authenticate using these credentials.{' '}
+                    <Link href="https://learn.microsoft.com/azure/app-service/deploy-ftp" target="_blank">Learn more</Link>
+                  </MessageBarBody>
+                </MessageBar>
+              )}
+
+              {/* Intro text */}
+              <Text className={styles.ftpsDescription}>
+                App Service supports multiple technologies to access, publish and modify the content of your app. FTPS credentials can be scoped to the application or the user.{' '}
+                <Link href="https://learn.microsoft.com/azure/app-service/deploy-ftp" target="_blank">Learn more</Link>
+              </Text>
+
+              {/* FTPS endpoint */}
+              <div className={styles.ftpsFieldRow}>
+                <Text className={styles.ftpsFieldLabel}>FTPS endpoint</Text>
+                <Input value={ftpsCredentials.endpoint} readOnly />
+                <Tooltip content="Copy" relationship="label">
+                  <Button
+                    appearance="subtle"
+                    icon={<Copy24Regular />}
+                    size="small"
+                    onClick={() => navigator.clipboard.writeText(ftpsCredentials.endpoint)}
+                  />
+                </Tooltip>
+              </div>
+
+              <Divider />
+
+              {/* Application-scope */}
+              <Text className={styles.ftpsSectionHeading}>Application-scope</Text>
+              <Text className={styles.ftpsSectionDescription}>
+                Application-scope credentials are auto-generated and provide access only to this specific app or deployment slot.
+                These credentials can be used with FTPS, Local Git and WebDeploy. They cannot be configured manually, but can be reset anytime.
+              </Text>
+
+              <div className={styles.ftpsFieldRow}>
+                <Text className={styles.ftpsFieldLabel}>FTPS username</Text>
+                <Input value={ftpsCredentials.appScopeUsername} readOnly />
+                <Tooltip content="Copy" relationship="label">
+                  <Button
+                    appearance="subtle"
+                    icon={<Copy24Regular />}
+                    size="small"
+                    onClick={() => navigator.clipboard.writeText(ftpsCredentials.appScopeUsername)}
+                  />
+                </Tooltip>
+              </div>
+              <div className={styles.ftpsFieldRow}>
+                <Text className={styles.ftpsFieldLabel}>Password</Text>
+                <Input type="password" value={ftpsCredentials.appScopePassword} readOnly />
+                <Tooltip content="Copy" relationship="label">
+                  <Button
+                    appearance="subtle"
+                    icon={<Copy24Regular />}
+                    size="small"
+                    onClick={() => navigator.clipboard.writeText(ftpsCredentials.appScopePassword)}
+                  />
+                </Tooltip>
+              </div>
+              <Button appearance="subtle" icon={<ArrowCounterclockwise24Regular />} size="small">
+                Reset
+              </Button>
+
+              <Divider />
+
+              {/* User-scope */}
+              <Text className={styles.ftpsSectionHeading}>User-scope</Text>
+              <Text className={styles.ftpsSectionDescription}>
+                User-scope credentials are defined by you, the user, and can be used with all the apps to which you have access.
+                These credentials can be used with FTPS, Local Git and WebDeploy. Authenticating to an FTPS endpoint using user-level credentials
+                requires a username in the following format: '{webApp.name}\(your username)'. Authenticating with Git requires only
+                the username '(your username)' defined below.
+              </Text>
+
+              <div className={styles.ftpsFieldRow}>
+                <Text className={styles.ftpsFieldLabel}>Username</Text>
+                <Input value={ftpsCredentials.userScopeUsername} />
+                <span />
+              </div>
+              <div className={styles.ftpsFieldRow}>
+                <Text className={styles.ftpsFieldLabel}>Password</Text>
+                <Input type="password" placeholder="Enter password" />
+                <span />
+              </div>
+              <div className={styles.ftpsFieldRow}>
+                <Text className={styles.ftpsFieldLabel}>Confirm password</Text>
+                <Input type="password" placeholder="Confirm password" />
+                <span />
+              </div>
+              <Button appearance="subtle" icon={<ArrowCounterclockwise24Regular />} size="small">
+                Reset
+              </Button>
+            </DialogContent>
+            <DialogActions>
+              <Button icon={<ArrowDownload24Regular />} style={{ marginRight: 'auto' }}>
+                Download publish profile
+              </Button>
+              <Button onClick={() => setFtpsDialogOpen(false)}>Discard</Button>
+              <Button appearance="primary" onClick={() => setFtpsDialogOpen(false)}>Save</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
 
       {/* ── Setup dialog ───────────────────────────────────── */}
       <Dialog
@@ -1072,6 +1718,11 @@ export const BoldDeployments = () => {
                       {opt.recommended && (
                         <Badge appearance="filled" color="brand" size="small">
                           Recommended
+                        </Badge>
+                      )}
+                      {opt.manual && (
+                        <Badge appearance="outline" color="informative" size="small">
+                          Manual
                         </Badge>
                       )}
                       <Text className={styles.sourceOptionDesc}>{opt.description}</Text>

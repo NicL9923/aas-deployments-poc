@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { makeStyles, tokens, Switch } from '@fluentui/react-components';
+import { makeStyles, tokens } from '@fluentui/react-components';
 
 export interface StreamingLogViewerProps {
   logs: string[];
@@ -22,7 +22,7 @@ const useStyles = makeStyles({
     paddingBottom: tokens.spacingVerticalM,
     paddingLeft: tokens.spacingHorizontalL,
     paddingRight: tokens.spacingHorizontalL,
-    maxHeight: '300px',
+    height: '300px',
     overflowY: 'auto',
     overflowX: 'auto',
     whiteSpace: 'pre',
@@ -30,17 +30,11 @@ const useStyles = makeStyles({
   toolbar: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: tokens.spacingVerticalXS,
   },
   lineCount: {
     fontSize: tokens.fontSizeBase100,
     color: tokens.colorNeutralForeground3,
-  },
-  followSwitch: {
-    '& label': {
-      fontSize: tokens.fontSizeBase100,
-    },
   },
   cursor: {
     display: 'inline-block',
@@ -62,9 +56,7 @@ export function StreamingLogViewer({ logs, isStreaming }: StreamingLogViewerProp
   const styles = useStyles();
   const containerRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(() => (isStreaming ? 0 : logs.length));
-  const [follow, setFollow] = useState(true);
 
-  // Reset visible count when streaming state or log source changes
   useEffect(() => {
     if (!isStreaming) {
       setVisibleCount(logs.length);
@@ -73,7 +65,6 @@ export function StreamingLogViewer({ logs, isStreaming }: StreamingLogViewerProp
     }
   }, [isStreaming, logs]);
 
-  // Reveal lines one at a time when streaming
   useEffect(() => {
     if (!isStreaming) return;
 
@@ -90,17 +81,11 @@ export function StreamingLogViewer({ logs, isStreaming }: StreamingLogViewerProp
     return () => clearInterval(id);
   }, [isStreaming, logs]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
-    if (follow && containerRef.current) {
+    if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [visibleCount, follow]);
-
-  // Enable follow automatically when streaming starts
-  useEffect(() => {
-    if (isStreaming) setFollow(true);
-  }, [isStreaming]);
+  }, [visibleCount]);
 
   const displayedLines = isStreaming ? logs.slice(0, visibleCount) : logs;
   const totalLines = displayedLines.length;
@@ -109,14 +94,6 @@ export function StreamingLogViewer({ logs, isStreaming }: StreamingLogViewerProp
     <div className={styles.root}>
       <div className={styles.toolbar}>
         <span className={styles.lineCount}>{totalLines} lines</span>
-        {isStreaming && (
-          <Switch
-            className={styles.followSwitch}
-            label="Follow"
-            checked={follow}
-            onChange={(_, data) => setFollow(data.checked)}
-          />
-        )}
       </div>
       <div ref={containerRef} className={styles.container}>
         {displayedLines.join('\n')}
