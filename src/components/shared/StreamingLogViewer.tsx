@@ -52,18 +52,10 @@ const useStyles = makeStyles({
   },
 });
 
-export function StreamingLogViewer({ logs, isStreaming }: StreamingLogViewerProps) {
+export const StreamingLogViewer = ({ logs, isStreaming }: StreamingLogViewerProps) => {
   const styles = useStyles();
   const containerRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(() => (isStreaming ? 0 : logs.length));
-
-  useEffect(() => {
-    if (!isStreaming) {
-      setVisibleCount(logs.length);
-    } else {
-      setVisibleCount(0);
-    }
-  }, [isStreaming, logs]);
 
   useEffect(() => {
     if (!isStreaming) return;
@@ -101,4 +93,4 @@ export function StreamingLogViewer({ logs, isStreaming }: StreamingLogViewerProp
       </div>
     </div>
   );
-}
+};

@@ -19,7 +19,7 @@ import {
   ChevronRight16Regular,
 } from '@fluentui/react-icons';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useSlot } from '../../context/SlotContext';
+import { useSlot } from '../../context/useSlot';
 import { deploymentSlots } from '../../mock-data';
 
 const useStyles = makeStyles({

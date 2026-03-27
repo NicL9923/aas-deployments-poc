@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { DeploymentSourceType } from '../../types';
-import { useSlot } from '../../context/SlotContext';
+import { useSlot } from '../../context/useSlot';
 import {
   deploymentSources,
   allDeployments,
@@ -1593,6 +1593,7 @@ export const BoldDeployments = () => {
                         <Text weight="semibold">Logs</Text>
                         <div className={styles.detailLogsScroll}>
                           <StreamingLogViewer
+                            key={`${detail.id}-${detail.status === 'InProgress' ? 'streaming' : 'complete'}`}
                             logs={detail.buildLogs}
                             isStreaming={detail.status === 'InProgress'}
                           />

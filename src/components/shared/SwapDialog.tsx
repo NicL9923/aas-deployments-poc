@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StatusBadge } from './StatusBadge';
 import {
   Badge,
@@ -181,8 +181,6 @@ const columns = [
 ];
 
 export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
-  const styles = useStyles();
-
   const defaultSource = useMemo(() => {
     const nonProd = slots.find((s) => !s.isProduction);
     return nonProd?.name ?? slots[0]?.name ?? '';
@@ -193,20 +191,38 @@ export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
     return prod?.name ?? slots[0]?.name ?? '';
   }, [slots]);
 
+  return (
+    <Dialog open={open} onOpenChange={(_, data) => onOpenChange(data.open)}>
+      <SwapDialogContent
+        key={`${open ? 'open' : 'closed'}-${defaultSource}-${defaultTarget}`}
+        defaultSource={defaultSource}
+        defaultTarget={defaultTarget}
+        onOpenChange={onOpenChange}
+        slots={slots}
+      />
+    </Dialog>
+  );
+};
+
+interface SwapDialogContentProps {
+  defaultSource: string;
+  defaultTarget: string;
+  onOpenChange: (open: boolean) => void;
+  slots: DeploymentSlot[];
+}
+
+const SwapDialogContent = ({
+  defaultSource,
+  defaultTarget,
+  onOpenChange,
+  slots,
+}: SwapDialogContentProps) => {
+  const styles = useStyles();
+
   const [selectedSource, setSelectedSource] = useState(defaultSource);
   const [selectedTarget, setSelectedTarget] = useState(defaultTarget);
   const [swapWithPreview, setSwapWithPreview] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('source');
-
-  // Reset state when dialog opens
-  useEffect(() => {
-    if (open) {
-      setSelectedSource(defaultSource);
-      setSelectedTarget(defaultTarget);
-      setSwapWithPreview(false);
-      setActiveTab('source');
-    }
-  }, [open, defaultSource, defaultTarget]);
 
   const sourceSlot = slots.find((s) => s.name === selectedSource);
   const targetSlot = slots.find((s) => s.name === selectedTarget);
@@ -250,11 +266,10 @@ export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(_, data) => onOpenChange(data.open)}>
-      <DialogSurface className={styles.surface}>
-        <DialogBody>
-          <DialogTitle>Swap</DialogTitle>
-          <DialogContent>
+    <DialogSurface className={styles.surface}>
+      <DialogBody>
+        <DialogTitle>Swap</DialogTitle>
+        <DialogContent>
             {/* Source section */}
             <div className={styles.section}>
               <div className={styles.labelRow}>
@@ -400,17 +415,16 @@ export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
                 )}
               </div>
             </div>
-          </DialogContent>
-          <DialogActions>
-            <Button appearance="secondary" onClick={handleCancel}>
-              Cancel
-            </Button>
-            <Button appearance="primary" onClick={handleConfirm}>
-              {swapWithPreview ? 'Start preview' : 'Swap'}
-            </Button>
-          </DialogActions>
-        </DialogBody>
-      </DialogSurface>
-    </Dialog>
+        </DialogContent>
+        <DialogActions>
+          <Button appearance="secondary" onClick={handleCancel}>
+            Cancel
+          </Button>
+          <Button appearance="primary" onClick={handleConfirm}>
+            {swapWithPreview ? 'Start preview' : 'Swap'}
+          </Button>
+        </DialogActions>
+      </DialogBody>
+    </DialogSurface>
   );
 };
