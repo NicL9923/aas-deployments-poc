@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { DeploymentSourceType } from '../../types';
-import { useSlot } from '../../context/useSlot';
+import { useSlot } from '../../context/SlotContext';
 import {
   deploymentSources,
   allDeployments,
