@@ -24,21 +24,26 @@ import { deploymentSlots } from '../../mock-data';
 
 const useStyles = makeStyles({
   root: {
-    width: '250px',
-    minWidth: '250px',
     backgroundColor: tokens.colorNeutralBackground1,
-    borderRight: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
     display: 'flex',
     flexDirection: 'column',
     overflowY: 'auto',
-    flexShrink: 0,
+    flex: 1,
   },
   slotSelector: {
-    padding: tokens.spacingHorizontalS,
+    display: 'flex',
+    paddingTop: tokens.spacingVerticalS,
+    paddingBottom: tokens.spacingVerticalS,
+    paddingLeft: tokens.spacingHorizontalM,
+    paddingRight: tokens.spacingHorizontalM,
     borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
+    overflow: 'hidden',
   },
   slotDropdown: {
-    width: '100%',
+    flex: 1,
+    minWidth: 0,
+    maxWidth: '100%',
+    boxSizing: 'border-box',
   },
   slotOptionContent: {
     display: 'flex',

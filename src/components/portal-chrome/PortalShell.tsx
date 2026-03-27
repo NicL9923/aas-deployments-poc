@@ -16,6 +16,14 @@ const useStyles = makeStyles({
     flex: 1,
     overflow: 'hidden',
   },
+  leftColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    width: '250px',
+    minWidth: '250px',
+    flexShrink: 0,
+    borderRight: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
+  },
   content: {
     display: 'flex',
     flexDirection: 'column',
@@ -40,9 +48,11 @@ export const PortalShell = ({ children }: PortalShellProps) => {
   return (
     <div className={styles.root}>
       <TopBar />
-      <ResourceHeader />
       <div className={styles.body}>
-        <LeftNav />
+        <div className={styles.leftColumn}>
+          <ResourceHeader />
+          <LeftNav />
+        </div>
         <div className={styles.content}>
           <div className={styles.scrollArea}>
             {children}

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { DeploymentSourceType } from '../../types';
 import { useSlot } from '../../context/SlotContext';
 import {
-  deploymentSource,
+  deploymentSources,
   allDeployments,
   deploymentSlots,
   availableOrgs,
@@ -10,6 +10,7 @@ import {
   availableBranches,
   webApp,
   ftpsCredentials,
+  sidecarContainersBySlot,
 } from '../../mock-data';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { StreamingLogViewer } from '../../components/shared/StreamingLogViewer';
@@ -88,25 +89,6 @@ const sourceOptions: {
   { type: 'localGit', name: 'Local Git', description: 'Push directly from your local machine' },
   { type: 'externalGit', name: 'External Git', description: 'Any publicly accessible Git repository', manual: true },
   { type: 'publishFiles', name: 'Publish files', description: 'Upload files from your dev tools', manual: true },
-];
-
-const sidecarContainers = [
-  {
-    name: 'otel-collector',
-    type: 'Sidecar',
-    source: 'Docker Hub',
-    image: 'otel/opentelemetry-collector',
-    tag: '0.96.0',
-    port: 4317,
-  },
-  {
-    name: 'ai-inference',
-    type: 'Sidecar',
-    source: 'Other container registries',
-    image: 'appsvc/docs/sidecars/sample-experiment',
-    tag: 'bitnet-b1.58-2b-4t-gguf',
-    port: 11434,
-  },
 ];
 
 const activityLogs = [
@@ -344,6 +326,28 @@ const useStyles = makeStyles({
     flexWrap: 'wrap',
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
+  },
+  heroEmptyState: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalL,
+    minHeight: '140px',
+  },
+  heroEmptyIcon: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '48px',
+    height: '48px',
+    borderRadius: tokens.borderRadiusLarge,
+    backgroundColor: tokens.colorBrandBackground2,
+    color: tokens.colorBrandForeground1,
+    flexShrink: 0,
+  },
+  heroEmptyText: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXS,
   },
   commitHash: {
     fontFamily: tokens.fontFamilyMonospace,
@@ -637,6 +641,18 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     gap: tokens.spacingVerticalXS,
   },
+  ftpsFooter: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: tokens.spacingVerticalM,
+  },
+  ftpsActionsRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
 
   // ── Setup dialog────────────────────────
   dialogSurface: {
@@ -728,18 +744,19 @@ const useStyles = makeStyles({
     gap: tokens.spacingVerticalL,
   },
   manageTrafficRow: {
-    display: 'flex',
-    alignItems: 'center',
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 1fr)',
+    alignItems: 'start',
     gap: tokens.spacingHorizontalL,
   },
   manageTrafficSlotInfo: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalXXS,
-    minWidth: '200px',
+    minWidth: 0,
   },
   manageTrafficSpinButton: {
-    width: '100px',
+    width: '100%',
   },
 });
 
@@ -765,6 +782,13 @@ export const BoldDeployments = () => {
   const [deploymentDetailId, setDeploymentDetailId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(3);
   const { selectedSlot } = useSlot();
+  const currentSidecars = sidecarContainersBySlot[selectedSlot] ?? [];
+  const currentSource = deploymentSources[selectedSlot] ?? null;
+
+  React.useEffect(() => {
+    setIsDisconnected(!deploymentSources[selectedSlot]);
+  }, [selectedSlot]);
+
   const [slotSwapDialogOpen, setSlotSwapDialogOpen] = useState(false);
   const [manageSlotsDialogOpen, setManageSlotsDialogOpen] = useState(false);
   const [activityLogOpen, setActivityLogOpen] = useState(false);
@@ -1066,7 +1090,7 @@ export const BoldDeployments = () => {
             <DialogTitle>Disconnect deployment source?</DialogTitle>
             <DialogContent>
               <Text>
-                This will disconnect <Text weight="semibold">{deploymentSource.githubOrg}/{deploymentSource.githubRepo}</Text> from
+                This will disconnect <Text weight="semibold">{currentSource?.githubOrg}/{currentSource?.githubRepo}</Text> from
                 this app. Existing deployments will not be affected, but new pushes will no longer trigger deployments.
               </Text>
             </DialogContent>
@@ -1118,11 +1142,11 @@ export const BoldDeployments = () => {
           </div>
           <div className={styles.sourceDetails}>
             <Text className={styles.sourceRepo}>
-              {deploymentSource.githubOrg}/{deploymentSource.githubRepo}
+              {currentSource?.githubOrg}/{currentSource?.githubRepo}
             </Text>
             <div className={styles.sourceMeta}>
-              <Link href={deploymentSource.repoUrl} target="_blank" appearance="subtle">
-                {deploymentSource.githubBranch}
+              <Link href={currentSource?.repoUrl} target="_blank" appearance="subtle">
+                {currentSource?.githubBranch}
               </Link>
               <span className={styles.dot} />
               <span>GitHub Actions</span>
@@ -1197,7 +1221,7 @@ export const BoldDeployments = () => {
       {/* ── Hero row: Latest deployment + Sidecar containers ── */}
       <div className={styles.heroRow}>
         {/* ── Latest deployment hero ─────────────────────────── */}
-        {latestDeployment && (
+        {latestDeployment ? (
           <div
             className={styles.heroCard}
             onClick={() => setDeploymentDetailId(latestDeployment.id)}
@@ -1214,7 +1238,7 @@ export const BoldDeployments = () => {
                 {latestDeployment.commitId && (
                   <Tooltip content={`Commit ${latestDeployment.commitId}`} relationship="description">
                     <Link
-                      href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${latestDeployment.commitId}`}
+                      href={`https://github.com/${currentSource?.githubOrg}/${currentSource?.githubRepo}/commit/${latestDeployment.commitId}`}
                       target="_blank"
                       className={styles.commitHash}
                       onClick={(e) => e.stopPropagation()}
@@ -1225,7 +1249,7 @@ export const BoldDeployments = () => {
                 )}
                 <Link
                   href={latestDeployment.commitId
-                    ? `https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${latestDeployment.commitId}`
+                    ? `https://github.com/${currentSource?.githubOrg}/${currentSource?.githubRepo}/commit/${latestDeployment.commitId}`
                     : undefined}
                   target="_blank"
                   appearance="subtle"
@@ -1258,7 +1282,24 @@ export const BoldDeployments = () => {
               <ChevronRight24Regular />
             </span>
           </div>
-        </div>
+          </div>
+        ) : (
+          <div className={styles.heroCard}>
+            <div className={styles.heroEmptyState}>
+              <span className={styles.heroEmptyIcon}>
+                <Cloud24Regular />
+              </span>
+              <div className={styles.heroEmptyText}>
+                <Text className={styles.heroLabel}>Latest Deployment</Text>
+                <Text className={styles.heroMessage}>
+                  You don&apos;t currently have any deployments on this slot.
+                </Text>
+                <Text size={300} style={{ color: tokens.colorNeutralForeground3 }}>
+                  Deploy to this slot to see the latest run details and history here.
+                </Text>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ── Sidecar containers card ─────────────────────────── */}
@@ -1268,7 +1309,7 @@ export const BoldDeployments = () => {
               <span className={styles.sidecarIcon}><Box24Regular /></span>
               <Text weight="semibold" size={400}>Sidecar containers</Text>
               <Badge appearance="tint" color="informative" size="small">
-                {sidecarContainers.length}
+                {currentSidecars.length}
               </Badge>
             </div>
             <Button appearance="primary" size="small" icon={<Add24Regular />}>
@@ -1296,7 +1337,7 @@ export const BoldDeployments = () => {
               </tr>
             </thead>
             <tbody>
-              {sidecarContainers.map((sc) => (
+              {currentSidecars.map((sc) => (
                 <tr key={sc.name}>
                   <td className={styles.sidecarTd}>
                     <Link
@@ -1349,7 +1390,7 @@ export const BoldDeployments = () => {
 {`[2026-03-26T14:22:01Z] Starting container ${sidecarLogDialog ?? ''}...
 [2026-03-26T14:22:02Z] Pulling image from registry...
 [2026-03-26T14:22:05Z] Image pulled successfully.
-[2026-03-26T14:22:06Z] Container ${sidecarLogDialog ?? ''} started on port ${sidecarContainers.find(s => s.name === sidecarLogDialog)?.port ?? '?'}.
+[2026-03-26T14:22:06Z] Container ${sidecarLogDialog ?? ''} started on port ${currentSidecars.find(s => s.name === sidecarLogDialog)?.port ?? '?'}.
 [2026-03-26T14:22:06Z] Health check passed.
 [2026-03-26T14:22:10Z] Listening for incoming requests...
 [2026-03-26T14:23:44Z] GET /health 200 2ms
@@ -1371,7 +1412,7 @@ export const BoldDeployments = () => {
               <DialogTitle>Edit container — {sidecarEditDialog}</DialogTitle>
               <DialogContent className={styles.sidecarEditForm}>
                 {(() => {
-                  const sc = sidecarContainers.find(s => s.name === sidecarEditDialog);
+                  const sc = currentSidecars.find(s => s.name === sidecarEditDialog);
                   if (!sc) return null;
                   return (
                     <>
@@ -1408,90 +1449,94 @@ export const BoldDeployments = () => {
         </Dialog>
       </div>
 
-      <Divider />
+      {latestDeployment && (
+        <>
+          <Divider />
 
-      {/* ── Recent deployments ─────────────────────────────── */}
-      <div className={styles.sectionHeader}>
-        <Text className={styles.sectionTitle}>Recent deployments</Text>
-        <Badge appearance="tint" color="informative" size="small">
-          {recentDeployments.length}
-        </Badge>
-      </div>
+          {/* ── Recent deployments ─────────────────────────────── */}
+          <div className={styles.sectionHeader}>
+            <Text className={styles.sectionTitle}>Recent deployments</Text>
+            <Badge appearance="tint" color="informative" size="small">
+              {recentDeployments.length}
+            </Badge>
+          </div>
 
-      <div className={styles.deploymentsTableScroll}>
-        <table className={styles.deploymentsTable}>
-          <thead className={styles.tableHeader}>
-            <tr>
-              <th className={styles.th}>Status</th>
-              <th className={styles.th}>Deployment</th>
-              <th className={styles.th}>Time</th>
-              <th className={styles.th}>Duration</th>
-              <th className={styles.th} />
-            </tr>
-          </thead>
-          <tbody>
-            {recentDeployments.slice(0, visibleCount).map(entry => (
-              <tr
-                key={entry.id}
-                className={styles.tableRow}
-                onClick={() => setDeploymentDetailId(entry.id)}
-              >
-                <td className={styles.td}>
-                  <StatusBadge status={entry.status} />
-                </td>
-                <td className={styles.td}>
-                  <div className={styles.deploymentCell}>
-                    <div className={styles.deploymentFirstLine}>
-                      {entry.commitId && (
-                        <Link
-                          href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${entry.commitId}`}
-                          target="_blank"
-                          className={styles.commitHash}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {entry.commitId.slice(0, 7)}
-                        </Link>
-                      )}
-                      <Text className={styles.deploymentMessage}>
-                        {(entry.commitMessage ?? entry.message).length > 72
-                          ? `${(entry.commitMessage ?? entry.message).slice(0, 72)}\u2026`
-                          : (entry.commitMessage ?? entry.message)}
-                      </Text>
-                      <Text className={styles.deploymentAuthor}>by {entry.author}</Text>
-                    </div>
-                    {entry.phases && (
-                      <DeploymentPhasePills phases={entry.phases} />
-                    )}
-                  </div>
-                </td>
-                <td className={mergeClasses(styles.td, styles.timeCell)}>
-                  <Tooltip content={entry.timestamp} relationship="description">
-                    <span>{formatRelativeTime(entry.timestamp)}</span>
-                  </Tooltip>
-                </td>
-                <td className={mergeClasses(styles.td, styles.durationCell)}>
-                  {entry.durationSeconds != null
-                    ? formatDuration(entry.durationSeconds)
-                    : '—'}
-                </td>
-                <td className={styles.td}>
-                  <span className={styles.chevronCell}>
-                    <ChevronRight24Regular />
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          <div className={styles.deploymentsTableScroll}>
+            <table className={styles.deploymentsTable}>
+              <thead className={styles.tableHeader}>
+                <tr>
+                  <th className={styles.th}>Status</th>
+                  <th className={styles.th}>Deployment</th>
+                  <th className={styles.th}>Time</th>
+                  <th className={styles.th}>Duration</th>
+                  <th className={styles.th} />
+                </tr>
+              </thead>
+              <tbody>
+                {recentDeployments.slice(0, visibleCount).map(entry => (
+                  <tr
+                    key={entry.id}
+                    className={styles.tableRow}
+                    onClick={() => setDeploymentDetailId(entry.id)}
+                  >
+                    <td className={styles.td}>
+                      <StatusBadge status={entry.status} />
+                    </td>
+                    <td className={styles.td}>
+                      <div className={styles.deploymentCell}>
+                        <div className={styles.deploymentFirstLine}>
+                          {entry.commitId && (
+                            <Link
+                              href={`https://github.com/${currentSource?.githubOrg}/${currentSource?.githubRepo}/commit/${entry.commitId}`}
+                              target="_blank"
+                              className={styles.commitHash}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {entry.commitId.slice(0, 7)}
+                            </Link>
+                          )}
+                          <Text className={styles.deploymentMessage}>
+                            {(entry.commitMessage ?? entry.message).length > 72
+                              ? `${(entry.commitMessage ?? entry.message).slice(0, 72)}\u2026`
+                              : (entry.commitMessage ?? entry.message)}
+                          </Text>
+                          <Text className={styles.deploymentAuthor}>by {entry.author}</Text>
+                        </div>
+                        {entry.phases && (
+                          <DeploymentPhasePills phases={entry.phases} />
+                        )}
+                      </div>
+                    </td>
+                    <td className={mergeClasses(styles.td, styles.timeCell)}>
+                      <Tooltip content={entry.timestamp} relationship="description">
+                        <span>{formatRelativeTime(entry.timestamp)}</span>
+                      </Tooltip>
+                    </td>
+                    <td className={mergeClasses(styles.td, styles.durationCell)}>
+                      {entry.durationSeconds != null
+                        ? formatDuration(entry.durationSeconds)
+                        : '—'}
+                    </td>
+                    <td className={styles.td}>
+                      <span className={styles.chevronCell}>
+                        <ChevronRight24Regular />
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      {visibleCount < recentDeployments.length && (
-        <Button
-          appearance="subtle"
-          onClick={() => setVisibleCount(prev => prev + 5)}
-        >
-          Load more ({recentDeployments.length - visibleCount} remaining)
-        </Button>
+          {visibleCount < recentDeployments.length && (
+            <Button
+              appearance="subtle"
+              onClick={() => setVisibleCount(prev => prev + 5)}
+            >
+              Load more ({recentDeployments.length - visibleCount} remaining)
+            </Button>
+          )}
+        </>
       )}
 
       {/* ── Deployment detail dialog ───────────────────────── */}
@@ -1515,7 +1560,7 @@ export const BoldDeployments = () => {
                       <span>{detail.author}</span>
                       {detail.commitId && (
                         <Link
-                          href={`https://github.com/${deploymentSource.githubOrg}/${deploymentSource.githubRepo}/commit/${detail.commitId}`}
+                          href={`https://github.com/${currentSource?.githubOrg}/${currentSource?.githubRepo}/commit/${detail.commitId}`}
                           target="_blank"
                           className={styles.commitHash}
                         >
@@ -1670,14 +1715,16 @@ export const BoldDeployments = () => {
               <Button appearance="subtle" icon={<ArrowCounterclockwise24Regular />} size="small">
                 Reset
               </Button>
+              <div className={styles.ftpsFooter}>
+                <Button icon={<ArrowDownload24Regular />}>
+                  Download publish profile
+                </Button>
+                <div className={styles.ftpsActionsRight}>
+                  <Button onClick={() => setFtpsDialogOpen(false)}>Discard</Button>
+                  <Button appearance="primary" onClick={() => setFtpsDialogOpen(false)}>Save</Button>
+                </div>
+              </div>
             </DialogContent>
-            <DialogActions>
-              <Button icon={<ArrowDownload24Regular />} style={{ marginRight: 'auto' }}>
-                Download publish profile
-              </Button>
-              <Button onClick={() => setFtpsDialogOpen(false)}>Discard</Button>
-              <Button appearance="primary" onClick={() => setFtpsDialogOpen(false)}>Save</Button>
-            </DialogActions>
           </DialogBody>
         </DialogSurface>
       </Dialog>

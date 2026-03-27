@@ -46,7 +46,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: 'a3f8b2c',
     commitMessage: 'feat: add real-time notification websocket endpoint',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     sourceType: 'github',
     buildLogs: [
       '▶ Run actions/checkout@v4',
@@ -115,7 +115,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: 'e7d4a91',
     commitMessage: 'fix: resolve memory leak in connection pool manager',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     durationSeconds: 94,
     sourceType: 'github',
     buildLogs: [
@@ -167,7 +167,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: 'b1c2d3e',
     commitMessage: 'chore: upgrade express to 5.1.0 and update middleware chain',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     durationSeconds: 112,
     sourceType: 'github',
     buildLogs: [
@@ -207,7 +207,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: 'c4d5e6f',
     commitMessage: 'chore(deps): bump axios from 1.7.2 to 1.7.9',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     durationSeconds: 78,
     sourceType: 'github',
     buildLogs: [
@@ -238,7 +238,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: 'f7a8b9c',
     commitMessage: 'feat: add user preference caching layer',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     durationSeconds: 42,
     sourceType: 'github',
     buildLogs: [
@@ -269,7 +269,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: 'd0e1f2a',
     commitMessage: 'refactor: extract auth middleware into separate module',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     durationSeconds: 101,
     sourceType: 'github',
     buildLogs: [
@@ -299,7 +299,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: 'a2b3c4d',
     commitMessage: 'feat: implement rate limiting for public API endpoints',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     durationSeconds: 135,
     sourceType: 'github',
     buildLogs: [
@@ -329,7 +329,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: 'e5f6a7b',
     commitMessage: 'wip: experimental graphql resolver — not ready',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     durationSeconds: 18,
     sourceType: 'github',
     buildLogs: [
@@ -348,7 +348,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: 'c8d9e0f',
     commitMessage: 'fix: correct timezone handling in scheduled job runner',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     durationSeconds: 88,
     sourceType: 'github',
     buildLogs: [
@@ -378,7 +378,7 @@ export const deploymentHistory: DeploymentEntry[] = [
     commitId: '1a2b3c4',
     commitMessage: 'feat: add prometheus metrics endpoint',
     branch: 'main',
-    targetSlot: 'production',
+    targetSlot: 'staging',
     durationSeconds: 178,
     sourceType: 'github',
     buildLogs: [
@@ -536,7 +536,7 @@ export const deploymentSlots: DeploymentSlot[] = [
     name: 'production',
     isProduction: true,
     status: 'Running',
-    lastDeployment: deploymentHistory[1],
+    lastDeployment: undefined,
     trafficPercentage: 75,
     url: 'https://nl-testwebapp-1.azurewebsites.net',
     runtimeStack: 'Node 22-LTS',
@@ -576,6 +576,21 @@ export const ftpsCredentials: FtpsCredentials = {
 };
 
 export const availableOrgs: string[] = ['NicL9923', 'microsoft', 'Azure'];
+
+export const deploymentSources: Record<string, DeploymentSourceConfig | null> = {
+  production: null,
+  staging: deploymentSource,
+};
+
+export const sidecarContainersBySlot: Record<string, Array<{ name: string; type: string; source: string; image: string; tag: string; port: number }>> = {
+  production: [
+    { name: 'redis-cache', type: 'Sidecar', source: 'Docker Hub', image: 'redis/redis-stack-server', tag: '7.4.0-v3', port: 6379 },
+  ],
+  staging: [
+    { name: 'test-cache', type: 'Sidecar', source: 'Docker Hub', image: 'redis/redis-stack-server', tag: '7.4.0-v3', port: 6379 },
+    { name: 'test-storage', type: 'Sidecar', source: 'Azure Container Registry', image: 'myacr.azurecr.io/test-storage', tag: 'latest', port: 10000 },
+  ],
+};
 
 export const availableRepos: Record<string, string[]> = {
   NicL9923: ['my-node-app', 'portfolio-site', 'api-gateway', 'infra-templates'],

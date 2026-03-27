@@ -63,9 +63,17 @@ const useStyles = makeStyles({
   section: {
     marginBottom: tokens.spacingVerticalM,
   },
+  swapPreviewSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: tokens.spacingVerticalXS,
+  },
   swapPreviewCaption: {
     paddingLeft: '28px',
     color: tokens.colorNeutralForeground3,
+    display: 'block',
+    maxWidth: '100%',
   },
   configHeading: {
     fontWeight: tokens.fontWeightSemibold,
@@ -324,7 +332,7 @@ export const SwapDialog = ({ open, onOpenChange, slots }: SwapDialogProps) => {
             </div>
 
             {/* Swap with preview checkbox */}
-            <div className={styles.section}>
+            <div className={mergeClasses(styles.section, styles.swapPreviewSection)}>
               <Checkbox
                 label="Perform swap with preview"
                 checked={swapWithPreview}
